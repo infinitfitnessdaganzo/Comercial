@@ -30,16 +30,17 @@
       </aside>
 
       <main class="main-content">
-        <header class="topbar"><div><p class="eyebrow">CONTROL COMERCIAL</p><h1 id="page-title">Resumen</h1></div><div class="top-actions"><label class="month-picker">Mes <input id="month-filter" type="month" /></label><button id="new-contact-button" class="button primary">＋ Nuevo contacto</button></div></header>
+        <header class="topbar"><div><p class="eyebrow">CONTROL COMERCIAL</p><h1 id="page-title">Resumen</h1></div><div class="top-actions period-actions"><label class="period-picker">Visualizar<select id="period-mode"><option value="month">Por mes</option><option value="range">Entre fechas</option></select></label><label id="month-picker-label" class="month-picker">Mes <input id="month-filter" type="month" /></label><label id="range-start-label" class="month-picker hidden">Desde <input id="range-start" type="date" /></label><label id="range-end-label" class="month-picker hidden">Hasta <input id="range-end" type="date" /></label><button id="new-contact-button" class="button primary">＋ Nuevo contacto</button></div></header>
+        <p id="period-range-error" class="period-range-error hidden" role="alert">Elige ambas fechas y asegúrate de que “Desde” sea anterior o igual a “Hasta”.</p>
         <div id="notice" class="notice hidden" role="status"></div>
 
         <section id="overview-section" class="view-section">
           <div class="stat-grid">
-            <article class="stat-card"><span>Contactos del mes</span><strong id="stat-contacts">—</strong><small>Según fecha de contacto</small></article>
+            <article class="stat-card"><span id="stat-contacts-label">Contactos del mes</span><strong id="stat-contacts">—</strong><small>Según fecha de contacto</small></article>
             <article class="stat-card"><span>Contactos sin alta</span><strong id="stat-no-sale">—</strong><small>Seguimiento pendiente</small></article>
             <article class="stat-card"><span>Visitas</span><strong id="stat-visits">—</strong><small>Visitas registradas</small></article>
             <article class="stat-card"><span>Visitas sin alta</span><strong id="stat-visits-no-sale">—</strong><small>Sin alta al cierre del mes</small></article>
-            <article class="stat-card accent"><span>Altas del mes</span><strong id="stat-sales">—</strong><small>Según fecha de alta</small></article>
+            <article class="stat-card accent"><span id="stat-sales-label">Altas del mes</span><strong id="stat-sales">—</strong><small>Según fecha de alta</small></article>
           </div>
 
           <div class="content-grid">
