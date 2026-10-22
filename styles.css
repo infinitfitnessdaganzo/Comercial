@@ -128,12 +128,17 @@ td:first-child { font-weight: 700; color: #283c35; }
 .sort-control select { min-width: 165px; }
 .direction-control select { min-width: 255px; }
 .result-count { margin: 6px 0 10px; color: #87928d; font-size: 10px; }
-.cancellation-entry-panel { margin-bottom: 16px; }
-.cancellation-entry-panel .muted { margin: -3px 0 17px; font-size: 12px; }
-.cancellation-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
-.cancellation-form label { display: grid; gap: 5px; min-width: 180px; color: #687671; font-size: 10px; font-weight: 600; }
-.cancellation-form input { height: 41px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--ink); }
-.cancellation-table-panel { padding-bottom: 0; }
+.cancellation-counter-panel { width: min(560px, 100%); margin: 20px auto; padding: 25px; text-align: center; }
+.cancellation-counter-panel .panel-heading { text-align: left; }
+.cancellation-counter-panel .toolbar-control { min-width: 160px; text-align: left; }
+.cancellation-counter-panel .toolbar-control input { height: 41px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); }
+.cancellation-month-label { margin: 25px 0 5px; font-size: 13px; }
+.cancellation-counter { display: flex; align-items: center; justify-content: center; gap: 25px; margin: 13px 0 9px; }
+.cancellation-counter strong { min-width: 100px; font: 700 58px Manrope, sans-serif; letter-spacing: -.05em; color: var(--green-dark); }
+.counter-button { width: 54px; height: 54px; border: 1px solid #dce9e1; border-radius: 50%; background: #edf6f1; color: var(--green-dark); font-size: 30px; line-height: 1; }
+.counter-button:hover:not(:disabled) { background: #dcefe4; }
+.counter-button:disabled { cursor: not-allowed; opacity: .45; }
+.cancellation-error { padding: 10px; border-radius: 8px; background: #fff0ed; color: #9b4435; font-size: 12px; }
 .overdue td { background: #fffaf5; }
 .notice { position: fixed; z-index: 10; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 17px; border-radius: 9px; background: #eaf5ed; color: #26734f; box-shadow: var(--shadow); font-size: 12px; max-width: min(600px, 90vw); }
 .notice.error { background: #fff0ed; color: #9b4435; }
