@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], month: '', periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
+  const state = { user: null, contacts: [], month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -44,6 +44,7 @@
   }
   function selectedPeriod() {
     if (state.periodMode === 'month') return { start: `${state.month}-01`, end: monthEnd(state.month) };
+    if (state.periodMode === 'year') return { start: `${state.year}-01-01`, end: `${state.year}-12-31` };
     return { start: state.rangeStart, end: state.rangeEnd };
   }
   function inSelectedPeriod(date) {
@@ -70,7 +71,18 @@
       if (data.length < pageSize) break;
     }
     state.contacts = all;
+    updateYearOptions();
     render();
+  }
+
+  function updateYearOptions() {
+    const years = new Set([String(today.getFullYear())]);
+    state.contacts.forEach((contact) => [contact.contact_date, contact.visit_date, contact.alta_date].forEach((date) => {
+      if (date) years.add(date.slice(0, 4));
+    }));
+    if (!years.has(state.year)) years.add(state.year);
+    $('year-filter').innerHTML = [...years].sort((a, b) => Number(b) - Number(a)).map((year) => `<option value="${year}">${year}</option>`).join('');
+    $('year-filter').value = state.year;
   }
 
   function setView(view) {
@@ -89,7 +101,7 @@
     const sales = state.contacts.filter((c) => c.is_alta && inSelectedPeriod(c.alta_date));
     const noSale = contactsInPeriod.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const visitsNoSale = visits.filter((c) => !c.alta_date || c.alta_date > periodEnd);
-    const periodLabel = state.periodMode === 'month' ? 'mes' : 'periodo';
+    const periodLabel = state.periodMode === 'month' ? 'mes' : (state.periodMode === 'year' ? 'año' : 'periodo');
     $('stat-contacts-label').textContent = `Contactos del ${periodLabel}`;
     $('stat-sales-label').textContent = `Altas del ${periodLabel}`;
     $('stat-contacts').textContent = contactsInPeriod.length;
@@ -101,17 +113,27 @@
     $('ratio-contact-visits').textContent = fmtPercent(visits.length, contactsInPeriod.length);
     $('ratio-visit-sales').textContent = fmtPercent(sales.length, visits.length);
 
+    const isYear = state.periodMode === 'year';
+    $('daily-title').textContent = isYear ? 'Contactos por mes' : 'Contactos por día';
     const dayKeys = [];
-    for (let day = periodStart; day <= periodEnd; day = dateOffset(day, 1)) dayKeys.push(day);
+    if (isYear) {
+      for (let month = 1; month <= 12; month++) dayKeys.push(`${state.year}-${String(month).padStart(2, '0')}`);
+    } else {
+      for (let day = periodStart; day <= periodEnd; day = dateOffset(day, 1)) dayKeys.push(day);
+    }
     const countsByDate = new Map();
-    contactsInPeriod.forEach((contact) => countsByDate.set(contact.contact_date, (countsByDate.get(contact.contact_date) || 0) + 1));
+    contactsInPeriod.forEach((contact) => {
+      const key = isYear ? contact.contact_date.slice(0, 7) : contact.contact_date;
+      countsByDate.set(key, (countsByDate.get(key) || 0) + 1);
+    });
     const countsByDay = dayKeys.map((day) => countsByDate.get(day) || 0);
     const maxDay = Math.max(1, ...countsByDay);
     $('daily-total').textContent = `${contactsInPeriod.length} contactos`;
     $('daily-chart').innerHTML = countsByDay.map((count, index) => {
       const day = dayKeys[index];
-      const label = state.periodMode === 'month' ? String(Number(day.slice(8, 10))) : `${Number(day.slice(8, 10))}/${Number(day.slice(5, 7))}`;
-      return `<div class="day-column" title="${fmtDate(day)}: ${count} contacto${count === 1 ? '' : 's'}"><div class="bar-track"><span class="bar-fill ${count ? '' : 'zero'}" style="height:${count ? Math.max(5, (count / maxDay) * 100) : 2}%"></span></div><small>${label}</small></div>`;
+      const label = isYear ? new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(new Date(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, 1)) : (state.periodMode === 'month' ? String(Number(day.slice(8, 10))) : `${Number(day.slice(8, 10))}/${Number(day.slice(5, 7))}`);
+      const title = isYear ? new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, 1)) : fmtDate(day);
+      return `<div class="day-column" title="${title}: ${count} contacto${count === 1 ? '' : 's'}"><div class="bar-track"><span class="bar-fill ${count ? '' : 'zero'}" style="height:${count ? Math.max(5, (count / maxDay) * 100) : 2}%"></span></div><small>${label}</small></div>`;
     }).join('');
 
     const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date)).slice(0, 8);
@@ -314,6 +336,7 @@
 
   $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   state.month = $('month-filter').value;
+  updateYearOptions();
   state.rangeStart = `${state.month}-01`;
   state.rangeEnd = monthEnd(state.month);
   $('range-start').value = state.rangeStart;
@@ -321,13 +344,16 @@
   $('period-mode').addEventListener('change', (e) => {
     state.periodMode = e.target.value;
     const isRange = state.periodMode === 'range';
-    $('month-picker-label').classList.toggle('hidden', isRange);
+    const isMonth = state.periodMode === 'month';
+    $('month-picker-label').classList.toggle('hidden', !isMonth);
+    $('year-picker-label').classList.toggle('hidden', state.periodMode !== 'year');
     $('range-start-label').classList.toggle('hidden', !isRange);
     $('range-end-label').classList.toggle('hidden', !isRange);
     $('period-range-error').classList.add('hidden');
     render();
   });
   $('month-filter').addEventListener('change', (e) => { state.month = e.target.value; render(); });
+  $('year-filter').addEventListener('change', (e) => { state.year = e.target.value; render(); });
   const updateDateRange = () => {
     state.rangeStart = $('range-start').value;
     state.rangeEnd = $('range-end').value;
