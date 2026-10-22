@@ -50,7 +50,19 @@
           <section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">ACTIVIDAD RECIENTE</p><h2>Últimos contactos</h2></div><button class="text-button" data-view="contacts">Ver todos →</button></div><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Tipo de contacto</th><th>Fecha</th><th>Visita</th><th>Estado</th></tr></thead><tbody id="recent-rows"></tbody></table></div></section>
         </section>
 
-        <section id="contacts-section" class="view-section hidden"><div class="toolbar"><input id="search-input" class="search" type="search" placeholder="Buscar por número de socio o tipo…" /><button id="import-button" class="button secondary">Importar Excel</button><input id="excel-file" type="file" accept=".xls,.xlsx,.xlsm" hidden /></div><section class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Tipo de contacto</th><th>Fecha de contacto</th><th>Visita</th><th>Hot</th><th>Warm</th><th>Alta</th></tr></thead><tbody id="contact-rows"></tbody></table></div></section></section>
+        <section id="contacts-section" class="view-section hidden">
+          <div class="toolbar">
+            <input id="search-input" class="search" type="search" placeholder="Buscar por número de socio o tipo…" />
+            <label class="toolbar-control">Tipo<select id="type-filter"><option value="">Todos los tipos</option><option>Web/Email</option><option>Visita física</option><option>Teléfono</option><option>WhatsApp</option><option>Visita sin comercial</option><option>Invitación</option></select></label>
+            <label class="toolbar-control">Desde<input id="date-from-filter" type="date" /></label>
+            <label class="toolbar-control">Hasta<input id="date-to-filter" type="date" /></label>
+            <label class="toolbar-control sort-control">Ordenar por<select id="sort-by"><option value="member_number">Socio</option><option value="contact_type">Tipo de contacto</option><option value="contact_date">Fecha de contacto</option><option value="visit_date">Fecha de visita</option><option value="alta_date">Fecha de alta</option></select></label>
+            <label class="toolbar-control direction-control">Orden<select id="sort-direction"><option value="asc">Menor a mayor · A a Z · antiguo a reciente</option><option value="desc">Mayor a menor · Z a A · reciente a antiguo</option></select></label>
+            <button id="import-button" class="button secondary">Importar Excel</button><input id="excel-file" type="file" accept=".xls,.xlsx,.xlsm" hidden />
+          </div>
+          <p id="contact-count" class="result-count"></p>
+          <section class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Tipo de contacto</th><th>Fecha de contacto</th><th>Visita</th><th>Hot</th><th>Warm</th><th>Alta</th></tr></thead><tbody id="contact-rows"></tbody></table></div></section>
+        </section>
 
         <section id="followups-section" class="view-section hidden"><div class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">TAREAS ABIERTAS</p><h2>Seguimientos pendientes</h2></div></div><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Contacto</th><th>Fecha prevista</th><th>Tipo</th><th></th></tr></thead><tbody id="followup-rows"></tbody></table></div></div></section>
         <footer class="footer-note">Contactos, visitas y altas se guardan por separado para conservar su fecha real.</footer>
