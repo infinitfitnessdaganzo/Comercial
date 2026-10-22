@@ -99,6 +99,15 @@ th { height: 37px; padding: 0 14px; color: #84918c; font-size: 9px; font-weight:
 .sort-header { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
 .sort-header:hover, .sort-header:focus-visible { color: var(--green-dark); outline: none; }
 .sort-indicator { min-width: 9px; color: var(--green); font-size: 11px; }
+.action-heading { width: 70px; text-align: center; }
+.action-cell { width: 70px; text-align: center; }
+.delete-button { width: 31px; height: 31px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #a36459; }
+.delete-button:hover, .delete-button:focus-visible { border-color: #f0d8d4; background: #fff4f2; color: #a33d30; outline: none; }
+.delete-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.button.danger { background: #a33d30; color: #fff; }
+.button.danger:hover { background: #892c22; }
+.button:disabled { cursor: wait; opacity: .65; }
+.delete-details { padding: 11px 12px; border-radius: 8px; background: #f6f7f5; color: #455750; font-size: 12px; font-weight: 600; }
 td { height: 49px; padding: 0 14px; border-top: 1px solid #f0f2ef; font-size: 11px; color: #4f5e59; }
 td:first-child { font-weight: 700; color: #283c35; }
 .pill { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 99px; font-size: 9px; font-weight: 700; }
