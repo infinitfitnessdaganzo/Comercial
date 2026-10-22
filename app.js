@@ -43,6 +43,15 @@
     return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
   function inSelectedMonth(date) { return monthKey(date) === state.month; }
+  function updateSortIndicators() {
+    document.querySelectorAll('.sort-header').forEach((button) => {
+      const active = button.dataset.sortKey === state.sortBy;
+      const arrow = active ? (state.sortDirection === 'asc' ? '↑' : '↓') : '↕';
+      button.querySelector('.sort-indicator').textContent = arrow;
+      button.closest('th').setAttribute('aria-sort', active ? (state.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none');
+      button.setAttribute('aria-label', `${button.textContent.trim().replace(/[↑↓↕]/g, '').trim()}; ${active ? (state.sortDirection === 'asc' ? 'orden ascendente' : 'orden descendente') : 'ordenar'}`);
+    });
+  }
 
   async function loadContacts() {
     const all = [];
@@ -99,14 +108,15 @@
       const matchesTo = !state.dateTo || c.contact_date <= state.dateTo;
       return matchesSearch && matchesType && matchesFrom && matchesTo;
     }).sort((a, b) => {
-      const left = a[state.sortBy] || '';
-      const right = b[state.sortBy] || '';
-      if (!left && !right) return 0;
-      if (!left) return 1;
-      if (!right) return -1;
+      const left = a[state.sortBy] ?? '';
+      const right = b[state.sortBy] ?? '';
+      if (left === '' && right === '') return 0;
+      if (left === '') return 1;
+      if (right === '') return -1;
       const result = collator.compare(String(left), String(right));
       return state.sortDirection === 'asc' ? result : -result;
     });
+    updateSortIndicators();
     $('contact-count').textContent = `${filtered.length} de ${contactsInMonth.length} contactos`;
     $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(7, 'No hay contactos que coincidan.');
 
@@ -266,6 +276,17 @@
   $('date-to-filter').addEventListener('change', (e) => { state.dateTo = e.target.value; render(); });
   $('sort-by').addEventListener('change', (e) => { state.sortBy = e.target.value; render(); });
   $('sort-direction').addEventListener('change', (e) => { state.sortDirection = e.target.value; render(); });
+  document.querySelectorAll('.sort-header').forEach((button) => button.addEventListener('click', () => {
+    const key = button.dataset.sortKey;
+    if (state.sortBy === key) state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
+    else {
+      state.sortBy = key;
+      state.sortDirection = ['contact_type'].includes(key) ? 'asc' : 'desc';
+    }
+    $('sort-by').value = state.sortBy;
+    $('sort-direction').value = state.sortDirection;
+    render();
+  }));
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
   document.body.addEventListener('click', (e) => {
