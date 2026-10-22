@@ -205,28 +205,40 @@
     return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
   }
   function renderCancellations() {
+    const month = $('cancellation-month').value;
     if (!state.cancellationsLoaded) {
-      $('cancellation-rows').innerHTML = emptyRow(3, 'No se han podido cargar las bajas. Comprueba la configuración de Supabase.');
+      $('cancellation-error').textContent = 'No se pudieron cargar las bajas. Comprueba que se haya ejecutado la migración 002 de Supabase.';
+      $('cancellation-error').classList.remove('hidden');
+      $('cancellation-count').textContent = '—';
+      $('decrease-cancellations').disabled = true;
+      $('increase-cancellations').disabled = true;
       return;
     }
-    $('cancellation-rows').innerHTML = state.monthlyCancellations.length ? state.monthlyCancellations.map((record) => `<tr><td>${escapeHtml(cancellationMonthLabel(record.month_start))}</td><td>${Number(record.cancellation_count)}</td><td><button class="button small secondary" type="button" data-edit-cancellation="${record.month_start.slice(0, 7)}" data-count="${Number(record.cancellation_count)}">Editar</button></td></tr>`).join('') : emptyRow(3, 'Aún no hay bajas mensuales registradas.');
+    $('cancellation-error').classList.add('hidden');
+    const record = state.monthlyCancellations.find((row) => row.month_start.slice(0, 7) === month);
+    const count = Number(record?.cancellation_count || 0);
+    $('cancellation-count').textContent = count;
+    $('cancellation-month-label').textContent = month ? `Total de ${cancellationMonthLabel(`${month}-01`)}` : '';
+    $('decrease-cancellations').disabled = count === 0;
+    $('increase-cancellations').disabled = false;
   }
 
-  async function saveMonthlyCancellations(form) {
+  async function adjustMonthlyCancellations(delta) {
     const month = $('cancellation-month').value;
-    const count = Number($('cancellation-count-input').value);
-    if (!month || !Number.isInteger(count) || count < 0) throw new Error('Indica un mes y un número entero de bajas igual o superior a cero.');
+    if (!month) throw new Error('Elige el mes y el año.');
+    const current = Number($('cancellation-count').textContent || 0);
+    const count = Math.max(0, current + delta);
+    $('decrease-cancellations').disabled = true;
+    $('increase-cancellations').disabled = true;
     const { error } = await db.from('gym_monthly_cancellations').upsert({
       owner_id: state.user.id,
       month_start: `${month}-01`,
       cancellation_count: count
     }, { onConflict: 'owner_id,month_start' });
-    if (error) throw error;
-    $('cancellation-form-title').textContent = 'Registrar bajas del mes';
-    $('save-cancellations').textContent = 'Guardar mes';
-    $('cancellation-month').value = month;
-    $('cancellation-count-input').value = '';
-    notice(`Bajas de ${cancellationMonthLabel(`${month}-01`)} guardadas.`);
+    if (error) {
+      renderCancellations();
+      throw error;
+    }
     await loadMonthlyCancellations();
   }
 
@@ -454,9 +466,12 @@
   };
   $('range-start').addEventListener('change', updateDateRange);
   $('range-end').addEventListener('change', updateDateRange);
-  $('cancellation-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try { await saveMonthlyCancellations(e.currentTarget); } catch (error) { notice(`No se pudieron guardar las bajas: ${error.message}`, 'error'); }
+  $('cancellation-month').addEventListener('change', renderCancellations);
+  $('decrease-cancellations').addEventListener('click', async () => {
+    try { await adjustMonthlyCancellations(-1); } catch (error) { notice(`No se pudo actualizar el total: ${error.message}`, 'error'); }
+  });
+  $('increase-cancellations').addEventListener('click', async () => {
+    try { await adjustMonthlyCancellations(1); } catch (error) { notice(`No se pudo actualizar el total: ${error.message}`, 'error'); }
   });
   $('search-input').addEventListener('input', (e) => { state.search = e.target.value; render(); });
   $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; render(); });
@@ -482,14 +497,6 @@
     if (button) completeFollowup(button.dataset.complete, button.dataset.field);
     const deleteButton = e.target.closest('[data-delete-contact]');
     if (deleteButton) requestDeleteContact(deleteButton.dataset.deleteContact);
-    const editCancellation = e.target.closest('[data-edit-cancellation]');
-    if (editCancellation) {
-      $('cancellation-month').value = editCancellation.dataset.editCancellation;
-      $('cancellation-count-input').value = editCancellation.dataset.count;
-      $('cancellation-form-title').textContent = 'Actualizar bajas del mes';
-      $('save-cancellations').textContent = 'Actualizar mes';
-      $('cancellation-count-input').focus();
-    }
   });
   $('close-delete-confirm').addEventListener('click', () => $('delete-confirm').close());
   $('cancel-delete').addEventListener('click', () => $('delete-confirm').close());
