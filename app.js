@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -51,6 +51,13 @@
     const { start, end } = selectedPeriod();
     return Boolean(date && start && end && date >= start && date <= end);
   }
+  function cancellationMonthInSelectedPeriod(monthStart) {
+    if (!monthStart) return false;
+    const { start, end } = selectedPeriod();
+    const first = `${monthStart.slice(0, 7)}-01`;
+    const last = monthEnd(monthStart.slice(0, 7));
+    return first <= end && last >= start;
+  }
   function updateSortIndicators() {
     document.querySelectorAll('.sort-header').forEach((button) => {
       const active = button.dataset.sortKey === state.sortBy;
@@ -75,11 +82,22 @@
     render();
   }
 
+  async function loadMonthlyCancellations() {
+    const { data, error } = await db.from('gym_monthly_cancellations').select('*').order('month_start', { ascending: false });
+    if (error) throw error;
+    state.monthlyCancellations = data || [];
+    state.cancellationsLoaded = true;
+    updateYearOptions();
+    renderCancellations();
+    render();
+  }
+
   function updateYearOptions() {
     const years = new Set([String(today.getFullYear())]);
     state.contacts.forEach((contact) => [contact.contact_date, contact.visit_date, contact.alta_date].forEach((date) => {
       if (date) years.add(date.slice(0, 4));
     }));
+    state.monthlyCancellations.forEach((record) => { if (record.month_start) years.add(record.month_start.slice(0, 4)); });
     if (!years.has(state.year)) years.add(state.year);
     $('year-filter').innerHTML = [...years].sort((a, b) => Number(b) - Number(a)).map((year) => `<option value="${year}">${year}</option>`).join('');
     $('year-filter').value = state.year;
@@ -89,7 +107,7 @@
     state.view = view;
     document.querySelectorAll('.view-section').forEach((section) => section.classList.toggle('hidden', section.id !== `${view}-section`));
     document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${view}`));
-    $('page-title').textContent = ({ overview: 'Resumen', contacts: 'Contactos', followups: 'Seguimientos' })[view];
+    $('page-title').textContent = ({ overview: 'Resumen', contacts: 'Contactos', cancellations: 'Bajas', followups: 'Seguimientos' })[view];
   }
 
   function render() {
@@ -99,16 +117,21 @@
     const contactsInPeriod = state.contacts.filter((c) => inSelectedPeriod(c.contact_date));
     const visits = contactsInPeriod.filter((c) => Boolean(c.visit_date));
     const sales = state.contacts.filter((c) => c.is_alta && inSelectedPeriod(c.alta_date));
+    const cancellations = state.cancellationsLoaded ? state.monthlyCancellations.filter((record) => cancellationMonthInSelectedPeriod(record.month_start)).reduce((total, record) => total + Number(record.cancellation_count || 0), 0) : null;
     const noSale = contactsInPeriod.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const visitsNoSale = visits.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const periodLabel = state.periodMode === 'month' ? 'mes' : (state.periodMode === 'year' ? 'año' : 'periodo');
     $('stat-contacts-label').textContent = `Contactos del ${periodLabel}`;
     $('stat-sales-label').textContent = `Altas del ${periodLabel}`;
+    $('stat-cancellations-label').textContent = `Bajas del ${periodLabel}`;
+    $('stat-cancellations-note').textContent = state.periodMode === 'range' ? 'Incluye los meses que se solapan con el rango' : 'Bajas registradas por mes';
     $('stat-contacts').textContent = contactsInPeriod.length;
     $('stat-no-sale').textContent = noSale.length;
     $('stat-visits').textContent = visits.length;
     $('stat-visits-no-sale').textContent = visitsNoSale.length;
     $('stat-sales').textContent = sales.length;
+    $('stat-cancellations').textContent = cancellations === null ? '—' : cancellations;
+    $('stat-balance').textContent = cancellations === null ? '—' : sales.length - cancellations;
     $('ratio-contact-sales').textContent = fmtPercent(sales.length, contactsInPeriod.length);
     $('ratio-contact-visits').textContent = fmtPercent(visits.length, contactsInPeriod.length);
     $('ratio-visit-sales').textContent = fmtPercent(sales.length, visits.length);
@@ -177,6 +200,36 @@
     if (c.visit_date) return '<span class="pill warm">Visita</span>';
     return '<span class="pill neutral">Contacto</span>';
   }
+  function cancellationMonthLabel(monthStart) {
+    const [year, month] = monthStart.slice(0, 7).split('-').map(Number);
+    return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
+  }
+  function renderCancellations() {
+    if (!state.cancellationsLoaded) {
+      $('cancellation-rows').innerHTML = emptyRow(3, 'No se han podido cargar las bajas. Comprueba la configuración de Supabase.');
+      return;
+    }
+    $('cancellation-rows').innerHTML = state.monthlyCancellations.length ? state.monthlyCancellations.map((record) => `<tr><td>${escapeHtml(cancellationMonthLabel(record.month_start))}</td><td>${Number(record.cancellation_count)}</td><td><button class="button small secondary" type="button" data-edit-cancellation="${record.month_start.slice(0, 7)}" data-count="${Number(record.cancellation_count)}">Editar</button></td></tr>`).join('') : emptyRow(3, 'Aún no hay bajas mensuales registradas.');
+  }
+
+  async function saveMonthlyCancellations(form) {
+    const month = $('cancellation-month').value;
+    const count = Number($('cancellation-count-input').value);
+    if (!month || !Number.isInteger(count) || count < 0) throw new Error('Indica un mes y un número entero de bajas igual o superior a cero.');
+    const { error } = await db.from('gym_monthly_cancellations').upsert({
+      owner_id: state.user.id,
+      month_start: `${month}-01`,
+      cancellation_count: count
+    }, { onConflict: 'owner_id,month_start' });
+    if (error) throw error;
+    $('cancellation-form-title').textContent = 'Registrar bajas del mes';
+    $('save-cancellations').textContent = 'Guardar mes';
+    $('cancellation-month').value = month;
+    $('cancellation-count-input').value = '';
+    notice(`Bajas de ${cancellationMonthLabel(`${month}-01`)} guardadas.`);
+    await loadMonthlyCancellations();
+  }
+
   function contactRow(c) {
     const hot = c.is_alta ? '—' : (c.hot_done ? '<span class="pill success">Hecho</span>' : `<span class="pill ${dueFor(c, 'hot') ? 'hot' : 'neutral'}">${dueFor(c, 'hot') ? fmtDate(dueFor(c, 'hot')) : '—'}</span>`);
     const warm = c.is_alta ? '—' : (c.warm_done ? '<span class="pill success">Hecho</span>' : `<span class="pill ${dueFor(c, 'warm') ? 'warm' : 'neutral'}">${dueFor(c, 'warm') ? fmtDate(dueFor(c, 'warm')) : '—'}</span>`);
@@ -314,24 +367,61 @@
     return { imported, skipped };
   }
 
+  function importMonthlyCancellations(workbook) {
+    const monthNumbers = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
+    const imported = new Map();
+    for (const sheetName of workbook.SheetNames) {
+      if (/plantilla|listas/i.test(sheetName)) continue;
+      const normalizedName = sheetName.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const match = normalizedName.match(/^([a-z]+)\s+(\d{4})$/);
+      if (!match || !monthNumbers[match[1]]) continue;
+      const matrix = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, defval: null });
+      const row = matrix.find((cells) => cells.some((value) => String(value ?? '').trim().toLocaleLowerCase('es') === 'bajas del mes'));
+      if (!row) continue;
+      const labelColumn = row.findIndex((value) => String(value ?? '').trim().toLocaleLowerCase('es') === 'bajas del mes');
+      const rawCount = row[labelColumn + 1];
+      if (rawCount === null || rawCount === undefined || String(rawCount).trim() === '') continue;
+      const count = Number(rawCount);
+      if (!Number.isInteger(count) || count < 0) continue;
+      const monthStart = `${match[2]}-${String(monthNumbers[match[1]]).padStart(2, '0')}-01`;
+      imported.set(monthStart, { owner_id: state.user.id, month_start: monthStart, cancellation_count: count });
+    }
+    return [...imported.values()];
+  }
+
   async function importWorkbook(file) {
     if (!window.XLSX) throw new Error('No se pudo cargar el lector de Excel. Comprueba la conexión a Internet e inténtalo de nuevo.');
     $('import-progress').textContent = 'Leyendo el libro…';
     const buffer = await file.arrayBuffer();
     const workbook = window.XLSX.read(buffer, { type: 'array', cellDates: true, cellFormula: false });
     const { imported, skipped } = importRows(workbook);
-    if (!imported.length) throw new Error('No se encontraron filas importables con fecha de contacto.');
+    const monthlyCancellationRows = importMonthlyCancellations(workbook);
+    if (!imported.length && !monthlyCancellationRows.length) throw new Error('No se encontraron contactos ni bajas mensuales importables.');
+    let cancellationRowsToInsert = [];
+    let cancellationMonthsAlreadyPresent = 0;
+    if (monthlyCancellationRows.length) {
+      const { data: existingMonths, error } = await db.from('gym_monthly_cancellations').select('month_start').eq('owner_id', state.user.id);
+      if (error) throw error;
+      const existing = new Set((existingMonths || []).map((row) => row.month_start));
+      cancellationRowsToInsert = monthlyCancellationRows.filter((row) => !existing.has(row.month_start));
+      cancellationMonthsAlreadyPresent = monthlyCancellationRows.length - cancellationRowsToInsert.length;
+    }
     const batchSize = 400;
     for (let start = 0; start < imported.length; start += batchSize) {
       const batch = imported.slice(start, start + batchSize);
-      $('import-progress').textContent = `Guardando ${Math.min(start + batch.length, imported.length)} de ${imported.length} filas…`;
+      $('import-progress').textContent = `Guardando ${Math.min(start + batch.length, imported.length)} de ${imported.length} contactos…`;
       const { error } = await db.from('gym_contacts').upsert(batch, { onConflict: 'owner_id,legacy_source_key' });
       if (error) throw error;
     }
+    if (cancellationRowsToInsert.length) {
+      const { error } = await db.from('gym_monthly_cancellations').upsert(cancellationRowsToInsert, { onConflict: 'owner_id,month_start', ignoreDuplicates: true });
+      if (error) throw error;
+    }
     const warnings = imported.reduce((sum, row) => sum + row.import_warnings.length, 0);
-    $('import-progress').textContent = `Importación completada: ${imported.length} filas. ${warnings} avisos para revisar y ${skipped.length} filas omitidas por no tener fecha de contacto.`;
-    notice(`Importación lista: ${imported.length} filas cargadas y ${warnings} avisos para revisar.`);
+    $('import-progress').textContent = `Importación completada: ${imported.length} contactos y ${cancellationRowsToInsert.length} meses con bajas. ${cancellationMonthsAlreadyPresent} meses ya tenían datos y se conservaron.`;
+    notice(`Importación lista: ${imported.length} contactos y ${cancellationRowsToInsert.length} meses con bajas. ${warnings} avisos y ${skipped.length} filas sin fecha de contacto.`);
     await loadContacts();
+    await loadMonthlyCancellations();
   }
 
   $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -341,6 +431,7 @@
   state.rangeEnd = monthEnd(state.month);
   $('range-start').value = state.rangeStart;
   $('range-end').value = state.rangeEnd;
+  $('cancellation-month').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   $('period-mode').addEventListener('change', (e) => {
     state.periodMode = e.target.value;
     const isRange = state.periodMode === 'range';
@@ -363,6 +454,10 @@
   };
   $('range-start').addEventListener('change', updateDateRange);
   $('range-end').addEventListener('change', updateDateRange);
+  $('cancellation-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try { await saveMonthlyCancellations(e.currentTarget); } catch (error) { notice(`No se pudieron guardar las bajas: ${error.message}`, 'error'); }
+  });
   $('search-input').addEventListener('input', (e) => { state.search = e.target.value; render(); });
   $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; render(); });
   $('date-from-filter').addEventListener('change', (e) => { state.dateFrom = e.target.value; render(); });
@@ -387,6 +482,14 @@
     if (button) completeFollowup(button.dataset.complete, button.dataset.field);
     const deleteButton = e.target.closest('[data-delete-contact]');
     if (deleteButton) requestDeleteContact(deleteButton.dataset.deleteContact);
+    const editCancellation = e.target.closest('[data-edit-cancellation]');
+    if (editCancellation) {
+      $('cancellation-month').value = editCancellation.dataset.editCancellation;
+      $('cancellation-count-input').value = editCancellation.dataset.count;
+      $('cancellation-form-title').textContent = 'Actualizar bajas del mes';
+      $('save-cancellations').textContent = 'Actualizar mes';
+      $('cancellation-count-input').focus();
+    }
   });
   $('close-delete-confirm').addEventListener('click', () => $('delete-confirm').close());
   $('cancel-delete').addEventListener('click', () => $('delete-confirm').close());
@@ -423,7 +526,15 @@
     $('auth-view').classList.toggle('hidden', Boolean(state.user));
     $('app-view').classList.toggle('hidden', !state.user);
     if (state.user) {
-      window.setTimeout(() => loadContacts().catch((error) => notice(`No se pudieron cargar los datos: ${error.message}`, 'error')), 0);
+      window.setTimeout(() => {
+        loadContacts().catch((error) => notice(`No se pudieron cargar los contactos: ${error.message}`, 'error'));
+        loadMonthlyCancellations().catch((error) => {
+          state.cancellationsLoaded = false;
+          renderCancellations();
+          render();
+          notice(`No se pudieron cargar las bajas. Comprueba la migración 002 de Supabase: ${error.message}`, 'error');
+        });
+      }, 0);
     }
   });
 })();
