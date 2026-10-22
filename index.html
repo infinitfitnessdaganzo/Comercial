@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f6f5f1" />
+    <title>Gestión de visitas · Infinit Fitness</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="auth-view" class="auth-shell">
+      <form id="login-form" class="auth-card">
+        <div class="brand-mark">IF</div>
+        <p class="eyebrow">INFINIT FITNESS · DAGANZO</p>
+        <h1>Gestión de visitas</h1>
+        <p class="muted">Inicia sesión para consultar los contactos y seguimientos.</p>
+        <label>Correo electrónico<input name="email" type="email" autocomplete="username" required /></label>
+        <label>Contraseña<input name="password" type="password" autocomplete="current-password" required /></label>
+        <button class="button primary full" type="submit">Iniciar sesión</button>
+        <p id="login-error" class="error" role="alert"></p>
+        <p class="fine-print">La aplicación es privada. El acceso se configura en Supabase.</p>
+      </form>
+    </div>
+
+    <div id="app-view" class="app-shell hidden">
+      <aside class="sidebar">
+        <div class="brand-lockup"><div class="brand-mark">IF</div><div><strong>Infinit Fitness</strong><span>Daganzo</span></div></div>
+        <nav aria-label="Principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#contacts">☷ <span>Contactos</span></a><a class="nav-link" href="#followups">◷ <span>Seguimientos</span></a></nav>
+        <div class="sidebar-bottom"><span class="status-dot"></span><span>Datos sincronizados</span><button id="logout-button" class="quiet-button">Salir</button></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar"><div><p class="eyebrow">CONTROL COMERCIAL</p><h1 id="page-title">Resumen</h1></div><div class="top-actions"><label class="month-picker">Mes <input id="month-filter" type="month" /></label><button id="new-contact-button" class="button primary">＋ Nuevo contacto</button></div></header>
+        <div id="notice" class="notice hidden" role="status"></div>
+
+        <section id="overview-section" class="view-section">
+          <div class="stat-grid">
+            <article class="stat-card"><span>Contactos del mes</span><strong id="stat-contacts">—</strong><small>Según fecha de contacto</small></article>
+            <article class="stat-card"><span>Contactos sin alta</span><strong id="stat-no-sale">—</strong><small>Seguimiento pendiente</small></article>
+            <article class="stat-card"><span>Visitas</span><strong id="stat-visits">—</strong><small>Visitas registradas</small></article>
+            <article class="stat-card"><span>Visitas sin alta</span><strong id="stat-visits-no-sale">—</strong><small>Sin alta al cierre del mes</small></article>
+            <article class="stat-card accent"><span>Altas del mes</span><strong id="stat-sales">—</strong><small>Según fecha de alta</small></article>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel"><div class="panel-heading"><div><p class="eyebrow">CONVERSIÓN</p><h2>Ratios del mes</h2></div></div><div class="ratio-list"><div class="ratio-row"><span>Contactos → altas</span><strong id="ratio-contact-sales">—</strong></div><div class="ratio-row"><span>Contactos → visitas</span><strong id="ratio-contact-visits">—</strong></div><div class="ratio-row"><span>Visitas → altas</span><strong id="ratio-visit-sales">—</strong></div></div><p class="help-text">Las altas se cuentan en el mes de su fecha de alta.</p></section>
+            <section class="panel"><div class="panel-heading"><div><p class="eyebrow">HOY</p><h2>Seguimientos pendientes</h2></div><button class="text-button" data-view="followups">Ver todos →</button></div><div id="today-followups" class="compact-list"></div></section>
+          </div>
+          <section class="panel daily-panel"><div class="panel-heading"><div><p class="eyebrow">VOLUMEN DIARIO</p><h2>Contactos por día</h2></div><span id="daily-total" class="daily-total"></span></div><div id="daily-chart" class="daily-chart" aria-label="Contactos por día del mes"></div></section>
+          <section class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">ACTIVIDAD RECIENTE</p><h2>Últimos contactos</h2></div><button class="text-button" data-view="contacts">Ver todos →</button></div><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Tipo de contacto</th><th>Fecha</th><th>Visita</th><th>Estado</th></tr></thead><tbody id="recent-rows"></tbody></table></div></section>
+        </section>
+
+        <section id="contacts-section" class="view-section hidden"><div class="toolbar"><input id="search-input" class="search" type="search" placeholder="Buscar por número de socio o tipo…" /><button id="import-button" class="button secondary">Importar Excel</button><input id="excel-file" type="file" accept=".xls,.xlsx,.xlsm" hidden /></div><section class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Tipo de contacto</th><th>Fecha de contacto</th><th>Visita</th><th>Hot</th><th>Warm</th><th>Alta</th></tr></thead><tbody id="contact-rows"></tbody></table></div></section></section>
+
+        <section id="followups-section" class="view-section hidden"><div class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">TAREAS ABIERTAS</p><h2>Seguimientos pendientes</h2></div></div><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Contacto</th><th>Fecha prevista</th><th>Tipo</th><th></th></tr></thead><tbody id="followup-rows"></tbody></table></div></div></section>
+        <footer class="footer-note">Contactos, visitas y altas se guardan por separado para conservar su fecha real.</footer>
+      </main>
+    </div>
+
+    <dialog id="contact-dialog" class="modal"><form id="contact-form" method="dialog"><div class="modal-heading"><div><p class="eyebrow">NUEVO REGISTRO</p><h2>Registrar contacto</h2></div><button type="button" id="close-dialog" class="icon-button" aria-label="Cerrar">×</button></div><div class="form-grid"><label>Número de socio <span class="optional">opcional</span><input name="member_number" inputmode="numeric" /></label><label>Tipo de contacto<select name="contact_type" required><option value="">Seleccionar…</option><option>Web/Email</option><option>Visita física</option><option>Teléfono</option><option>WhatsApp</option><option>Visita sin comercial</option><option>Invitación</option></select></label><label>Fecha del contacto<input name="contact_date" type="date" required /></label><label>Fecha de visita <span class="optional">si vino al gimnasio</span><input name="visit_date" type="date" /></label><div class="form-divider"></div><label class="checkline"><input name="hot_done" type="checkbox" /> Hot realizado</label><label class="checkline"><input name="warm_done" type="checkbox" /> Warm realizado</label><label class="checkline"><input name="is_alta" type="checkbox" id="is-alta" /> Se ha dado de alta</label><label id="alta-date-field" class="hidden">Fecha del alta<input name="alta_date" type="date" /></label></div><p class="help-text">Hot se programa para el día siguiente a la visita; Warm, siete días después.</p><div class="modal-actions"><button type="button" id="cancel-dialog" class="button secondary">Cancelar</button><button class="button primary" type="submit">Guardar contacto</button></div></form></dialog>
+    <dialog id="import-dialog" class="modal"><div class="modal-heading"><div><p class="eyebrow">CARGA HISTÓRICA</p><h2>Importar desde Excel</h2></div><button type="button" id="close-import" class="icon-button" aria-label="Cerrar">×</button></div><p class="muted">Elige el libro original. Se leerán las pestañas mensuales; las filas dudosas se conservarán y quedarán señaladas para revisar.</p><div id="import-progress" class="import-progress"></div><div class="modal-actions"><button type="button" id="cancel-import" class="button secondary">Cerrar</button><button type="button" id="choose-excel" class="button primary">Elegir archivo Excel</button></div></dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>
+
