@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], month: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc' };
+  const state = { user: null, contacts: [], month: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -118,7 +118,7 @@
     });
     updateSortIndicators();
     $('contact-count').textContent = `${filtered.length} de ${contactsInMonth.length} contactos`;
-    $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(7, 'No hay contactos que coincidan.');
+    $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(8, 'No hay contactos que coincidan.');
 
     const tasks = state.contacts.flatMap((c) => {
       if (c.is_alta) return [];
@@ -141,7 +141,7 @@
     const hot = c.is_alta ? '—' : (c.hot_done ? '<span class="pill success">Hecho</span>' : `<span class="pill ${dueFor(c, 'hot') ? 'hot' : 'neutral'}">${dueFor(c, 'hot') ? fmtDate(dueFor(c, 'hot')) : '—'}</span>`);
     const warm = c.is_alta ? '—' : (c.warm_done ? '<span class="pill success">Hecho</span>' : `<span class="pill ${dueFor(c, 'warm') ? 'warm' : 'neutral'}">${dueFor(c, 'warm') ? fmtDate(dueFor(c, 'warm')) : '—'}</span>`);
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
-    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${hot}</td><td>${warm}</td><td>${c.is_alta ? `<span class="pill success">Alta · ${fmtDate(c.alta_date)}</span>` : '<span class="pill neutral">Sin alta</span>'} ${review}</td></tr>`;
+    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${hot}</td><td>${warm}</td><td>${c.is_alta ? `<span class="pill success">Alta · ${fmtDate(c.alta_date)}</span>` : '<span class="pill neutral">Sin alta</span>'} ${review}</td><td class="action-cell"><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
@@ -174,6 +174,33 @@
     const { error } = await db.from('gym_contacts').update({ [field]: true }).eq('id', id);
     if (error) return notice(`No se pudo actualizar el seguimiento: ${error.message}`, 'error');
     await loadContacts();
+  }
+
+  function requestDeleteContact(id) {
+    const contact = state.contacts.find((item) => item.id === id);
+    if (!contact) return;
+    state.pendingDelete = id;
+    const member = contact.member_number ? `Socio ${contact.member_number}` : 'Sin número de socio';
+    $('delete-confirm-details').textContent = `${member} · ${contact.contact_type} · ${fmtDate(contact.contact_date)}`;
+    $('delete-confirm').showModal();
+  }
+
+  async function deletePendingContact() {
+    if (!state.pendingDelete) return;
+    const button = $('confirm-delete');
+    button.disabled = true;
+    try {
+      const { error } = await db.from('gym_contacts').delete().eq('id', state.pendingDelete).eq('owner_id', state.user.id);
+      if (error) throw error;
+      $('delete-confirm').close();
+      state.pendingDelete = null;
+      notice('Contacto eliminado.');
+      await loadContacts();
+    } catch (error) {
+      notice(`No se pudo eliminar el contacto: ${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+    }
   }
 
   const trueValue = (value) => ['ok', 'si', 'sí', 'yes', 'true', '1', 'x'].includes(String(value ?? '').trim().toLocaleLowerCase('es'));
@@ -292,7 +319,13 @@
   document.body.addEventListener('click', (e) => {
     const button = e.target.closest('[data-complete]');
     if (button) completeFollowup(button.dataset.complete, button.dataset.field);
+    const deleteButton = e.target.closest('[data-delete-contact]');
+    if (deleteButton) requestDeleteContact(deleteButton.dataset.deleteContact);
   });
+  $('close-delete-confirm').addEventListener('click', () => $('delete-confirm').close());
+  $('cancel-delete').addEventListener('click', () => $('delete-confirm').close());
+  $('delete-confirm').addEventListener('close', () => { state.pendingDelete = null; });
+  $('confirm-delete').addEventListener('click', deletePendingContact);
   $('new-contact-button').addEventListener('click', () => { $('contact-form').elements.contact_date.value = isoDay(today); $('contact-dialog').showModal(); });
   $('close-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('cancel-dialog').addEventListener('click', () => $('contact-dialog').close());
