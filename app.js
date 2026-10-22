@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], month: '', view: 'overview', search: '' };
+  const state = { user: null, contacts: [], month: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc' };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -91,7 +91,23 @@
     $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${statusBadge(c)}</td></tr>`).join('') : emptyRow(5, 'No hay contactos en este mes.');
 
     const q = state.search.toLocaleLowerCase('es');
-    const filtered = contactsInMonth.filter((c) => !q || `${c.member_number || ''} ${c.contact_type}`.toLocaleLowerCase('es').includes(q));
+    const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
+    const filtered = contactsInMonth.filter((c) => {
+      const matchesSearch = !q || `${c.member_number || ''} ${c.contact_type}`.toLocaleLowerCase('es').includes(q);
+      const matchesType = !state.typeFilter || c.contact_type === state.typeFilter;
+      const matchesFrom = !state.dateFrom || c.contact_date >= state.dateFrom;
+      const matchesTo = !state.dateTo || c.contact_date <= state.dateTo;
+      return matchesSearch && matchesType && matchesFrom && matchesTo;
+    }).sort((a, b) => {
+      const left = a[state.sortBy] || '';
+      const right = b[state.sortBy] || '';
+      if (!left && !right) return 0;
+      if (!left) return 1;
+      if (!right) return -1;
+      const result = collator.compare(String(left), String(right));
+      return state.sortDirection === 'asc' ? result : -result;
+    });
+    $('contact-count').textContent = `${filtered.length} de ${contactsInMonth.length} contactos`;
     $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(7, 'No hay contactos que coincidan.');
 
     const tasks = state.contacts.flatMap((c) => {
@@ -245,6 +261,11 @@
   state.month = $('month-filter').value;
   $('month-filter').addEventListener('change', (e) => { state.month = e.target.value; render(); });
   $('search-input').addEventListener('input', (e) => { state.search = e.target.value; render(); });
+  $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; render(); });
+  $('date-from-filter').addEventListener('change', (e) => { state.dateFrom = e.target.value; render(); });
+  $('date-to-filter').addEventListener('change', (e) => { state.dateTo = e.target.value; render(); });
+  $('sort-by').addEventListener('change', (e) => { state.sortBy = e.target.value; render(); });
+  $('sort-direction').addEventListener('change', (e) => { state.sortDirection = e.target.value; render(); });
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
   document.body.addEventListener('click', (e) => {
