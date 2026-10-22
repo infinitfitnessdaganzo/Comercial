@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], month: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
+  const state = { user: null, contacts: [], month: '', periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -42,7 +42,14 @@
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  function inSelectedMonth(date) { return monthKey(date) === state.month; }
+  function selectedPeriod() {
+    if (state.periodMode === 'month') return { start: `${state.month}-01`, end: monthEnd(state.month) };
+    return { start: state.rangeStart, end: state.rangeEnd };
+  }
+  function inSelectedPeriod(date) {
+    const { start, end } = selectedPeriod();
+    return Boolean(date && start && end && date >= start && date <= end);
+  }
   function updateSortIndicators() {
     document.querySelectorAll('.sort-header').forEach((button) => {
       const active = button.dataset.sortKey === state.sortBy;
@@ -75,33 +82,44 @@
 
   function render() {
     if (!db || !state.user) return;
-    const contactsInMonth = state.contacts.filter((c) => inSelectedMonth(c.contact_date));
-    const visits = contactsInMonth.filter((c) => Boolean(c.visit_date));
-    const sales = state.contacts.filter((c) => c.is_alta && inSelectedMonth(c.alta_date));
-    const noSale = contactsInMonth.filter((c) => !c.alta_date || c.alta_date > monthEnd(state.month));
-    const visitsNoSale = visits.filter((c) => !c.alta_date || c.alta_date > monthEnd(state.month));
-    $('stat-contacts').textContent = contactsInMonth.length;
+    const { start: periodStart, end: periodEnd } = selectedPeriod();
+    if (!periodStart || !periodEnd || periodStart > periodEnd) return;
+    const contactsInPeriod = state.contacts.filter((c) => inSelectedPeriod(c.contact_date));
+    const visits = contactsInPeriod.filter((c) => Boolean(c.visit_date));
+    const sales = state.contacts.filter((c) => c.is_alta && inSelectedPeriod(c.alta_date));
+    const noSale = contactsInPeriod.filter((c) => !c.alta_date || c.alta_date > periodEnd);
+    const visitsNoSale = visits.filter((c) => !c.alta_date || c.alta_date > periodEnd);
+    const periodLabel = state.periodMode === 'month' ? 'mes' : 'periodo';
+    $('stat-contacts-label').textContent = `Contactos del ${periodLabel}`;
+    $('stat-sales-label').textContent = `Altas del ${periodLabel}`;
+    $('stat-contacts').textContent = contactsInPeriod.length;
     $('stat-no-sale').textContent = noSale.length;
     $('stat-visits').textContent = visits.length;
     $('stat-visits-no-sale').textContent = visitsNoSale.length;
     $('stat-sales').textContent = sales.length;
-    $('ratio-contact-sales').textContent = fmtPercent(sales.length, contactsInMonth.length);
-    $('ratio-contact-visits').textContent = fmtPercent(visits.length, contactsInMonth.length);
+    $('ratio-contact-sales').textContent = fmtPercent(sales.length, contactsInPeriod.length);
+    $('ratio-contact-visits').textContent = fmtPercent(visits.length, contactsInPeriod.length);
     $('ratio-visit-sales').textContent = fmtPercent(sales.length, visits.length);
 
-    const [year, monthNumber] = state.month.split('-').map(Number);
-    const daysInMonth = new Date(year, monthNumber, 0).getDate();
-    const countsByDay = Array.from({ length: daysInMonth }, (_, index) => contactsInMonth.filter((c) => Number(c.contact_date.slice(8, 10)) === index + 1).length);
+    const dayKeys = [];
+    for (let day = periodStart; day <= periodEnd; day = dateOffset(day, 1)) dayKeys.push(day);
+    const countsByDate = new Map();
+    contactsInPeriod.forEach((contact) => countsByDate.set(contact.contact_date, (countsByDate.get(contact.contact_date) || 0) + 1));
+    const countsByDay = dayKeys.map((day) => countsByDate.get(day) || 0);
     const maxDay = Math.max(1, ...countsByDay);
-    $('daily-total').textContent = `${contactsInMonth.length} contactos`;
-    $('daily-chart').innerHTML = countsByDay.map((count, index) => `<div class="day-column" title="${index + 1}: ${count} contacto${count === 1 ? '' : 's'}"><div class="bar-track"><span class="bar-fill ${count ? '' : 'zero'}" style="height:${count ? Math.max(5, (count / maxDay) * 100) : 2}%"></span></div><small>${index + 1}</small></div>`).join('');
+    $('daily-total').textContent = `${contactsInPeriod.length} contactos`;
+    $('daily-chart').innerHTML = countsByDay.map((count, index) => {
+      const day = dayKeys[index];
+      const label = state.periodMode === 'month' ? String(Number(day.slice(8, 10))) : `${Number(day.slice(8, 10))}/${Number(day.slice(5, 7))}`;
+      return `<div class="day-column" title="${fmtDate(day)}: ${count} contacto${count === 1 ? '' : 's'}"><div class="bar-track"><span class="bar-fill ${count ? '' : 'zero'}" style="height:${count ? Math.max(5, (count / maxDay) * 100) : 2}%"></span></div><small>${label}</small></div>`;
+    }).join('');
 
-    const recent = [...contactsInMonth].sort((a, b) => b.contact_date.localeCompare(a.contact_date)).slice(0, 8);
-    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${statusBadge(c)}</td></tr>`).join('') : emptyRow(5, 'No hay contactos en este mes.');
+    const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date)).slice(0, 8);
+    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${statusBadge(c)}</td></tr>`).join('') : emptyRow(5, 'No hay contactos en este periodo.');
 
     const q = state.search.toLocaleLowerCase('es');
     const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
-    const filtered = contactsInMonth.filter((c) => {
+    const filtered = contactsInPeriod.filter((c) => {
       const matchesSearch = !q || `${c.member_number || ''} ${c.contact_type}`.toLocaleLowerCase('es').includes(q);
       const matchesType = !state.typeFilter || c.contact_type === state.typeFilter;
       const matchesFrom = !state.dateFrom || c.contact_date >= state.dateFrom;
@@ -117,7 +135,7 @@
       return state.sortDirection === 'asc' ? result : -result;
     });
     updateSortIndicators();
-    $('contact-count').textContent = `${filtered.length} de ${contactsInMonth.length} contactos`;
+    $('contact-count').textContent = `${filtered.length} de ${contactsInPeriod.length} contactos`;
     $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(8, 'No hay contactos que coincidan.');
 
     const tasks = state.contacts.flatMap((c) => {
@@ -296,7 +314,29 @@
 
   $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   state.month = $('month-filter').value;
+  state.rangeStart = `${state.month}-01`;
+  state.rangeEnd = monthEnd(state.month);
+  $('range-start').value = state.rangeStart;
+  $('range-end').value = state.rangeEnd;
+  $('period-mode').addEventListener('change', (e) => {
+    state.periodMode = e.target.value;
+    const isRange = state.periodMode === 'range';
+    $('month-picker-label').classList.toggle('hidden', isRange);
+    $('range-start-label').classList.toggle('hidden', !isRange);
+    $('range-end-label').classList.toggle('hidden', !isRange);
+    $('period-range-error').classList.add('hidden');
+    render();
+  });
   $('month-filter').addEventListener('change', (e) => { state.month = e.target.value; render(); });
+  const updateDateRange = () => {
+    state.rangeStart = $('range-start').value;
+    state.rangeEnd = $('range-end').value;
+    const invalid = !state.rangeStart || !state.rangeEnd || state.rangeStart > state.rangeEnd;
+    $('period-range-error').classList.toggle('hidden', !invalid);
+    if (!invalid) render();
+  };
+  $('range-start').addEventListener('change', updateDateRange);
+  $('range-end').addEventListener('change', updateDateRange);
   $('search-input').addEventListener('input', (e) => { state.search = e.target.value; render(); });
   $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; render(); });
   $('date-from-filter').addEventListener('change', (e) => { state.dateFrom = e.target.value; render(); });
