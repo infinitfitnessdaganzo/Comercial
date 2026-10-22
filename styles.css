@@ -106,8 +106,13 @@ td:first-child { font-weight: 700; color: #283c35; }
 .pill.warning { background: #fff1df; color: #995e15; }
 .empty-cell, .empty-state { text-align: center; color: #9aa39f; font-size: 11px; padding: 20px; }
 .footer-note { margin-top: 20px; text-align: right; color: #9aa39f; font-size: 10px; }
-.toolbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
 .search { height: 41px; width: min(390px, 100%); padding: 0 13px; border: 1px solid var(--line); background: #fff; border-radius: 9px; outline: none; font-size: 12px; }
+.toolbar-control { display: grid; gap: 5px; color: #687671; font-size: 10px; font-weight: 600; }
+.toolbar-control select, .toolbar-control input { height: 41px; min-width: 130px; padding: 0 10px; border: 1px solid var(--line); background: #fff; border-radius: 9px; color: var(--ink); font-size: 11px; }
+.sort-control select { min-width: 165px; }
+.direction-control select { min-width: 255px; }
+.result-count { margin: 6px 0 10px; color: #87928d; font-size: 10px; }
 .overdue td { background: #fffaf5; }
 .notice { position: fixed; z-index: 10; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 17px; border-radius: 9px; background: #eaf5ed; color: #26734f; box-shadow: var(--shadow); font-size: 12px; max-width: min(600px, 90vw); }
 .notice.error { background: #fff0ed; color: #9b4435; }
