@@ -55,7 +55,7 @@ button { cursor: pointer; }
 .button.secondary:hover { background: #f7f9f7; }
 .button.small { height: 32px; font-size: 11px; padding: 0 11px; }
 
-.stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 17px; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 17px; }
 .stat-card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow); }
 .stat-card { min-height: 136px; padding: 18px 17px; display: flex; flex-direction: column; align-items: flex-start; }
 .stat-card > span { color: #65736f; font-size: 11px; font-weight: 600; }
@@ -128,6 +128,12 @@ td:first-child { font-weight: 700; color: #283c35; }
 .sort-control select { min-width: 165px; }
 .direction-control select { min-width: 255px; }
 .result-count { margin: 6px 0 10px; color: #87928d; font-size: 10px; }
+.cancellation-entry-panel { margin-bottom: 16px; }
+.cancellation-entry-panel .muted { margin: -3px 0 17px; font-size: 12px; }
+.cancellation-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; }
+.cancellation-form label { display: grid; gap: 5px; min-width: 180px; color: #687671; font-size: 10px; font-weight: 600; }
+.cancellation-form input { height: 41px; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: white; color: var(--ink); }
+.cancellation-table-panel { padding-bottom: 0; }
 .overdue td { background: #fffaf5; }
 .notice { position: fixed; z-index: 10; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 17px; border-radius: 9px; background: #eaf5ed; color: #26734f; box-shadow: var(--shadow); font-size: 12px; max-width: min(600px, 90vw); }
 .notice.error { background: #fff0ed; color: #9b4435; }
