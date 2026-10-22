@@ -96,6 +96,9 @@ button { cursor: pointer; }
 table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
 thead { background: #fafbf9; }
 th { height: 37px; padding: 0 14px; color: #84918c; font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.sort-header { display: inline-flex; align-items: center; gap: 6px; padding: 8px 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.sort-header:hover, .sort-header:focus-visible { color: var(--green-dark); outline: none; }
+.sort-indicator { min-width: 9px; color: var(--green); font-size: 11px; }
 td { height: 49px; padding: 0 14px; border-top: 1px solid #f0f2ef; font-size: 11px; color: #4f5e59; }
 td:first-child { font-weight: 700; color: #283c35; }
 .pill { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 99px; font-size: 9px; font-weight: 700; }
