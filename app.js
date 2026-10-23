@@ -363,8 +363,8 @@
   function followupStatusCell(c, kind) {
     const enabled = c[`${kind}_enabled`] ?? Boolean(c.visit_date);
     if (!enabled) return '<span class="pill neutral">—</span>';
-    if (c.is_alta && kind !== 'hot') return '<span class="pill neutral">—</span>';
-    const done = kind === 'hot' ? (Boolean(c.hot_done) || Boolean(c.is_alta)) : c.warm_done;
+
+    const done = kind === 'hot' ? c.hot_done : c.warm_done;
     const editAttrs = `data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}"`;
     const editLabel = `Elegir nueva fecha ${kind === 'hot' ? 'Hot' : 'Warm'} para el socio ${escapeHtml(c.member_number || 'sin número')}`;
     if (done) return `<button class="pill success followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="Pulsa para programar otro seguimiento">Hecho</button>`;
@@ -505,7 +505,7 @@
       visit_date: visitDate,
       hot_enabled: values.get('hot_enabled') === 'on',
       warm_enabled: values.get('warm_enabled') === 'on',
-      hot_done: isAlta && (values.get('hot_enabled') === 'on'),
+      hot_done: false,
       warm_done: false,
       is_alta: isAlta,
       alta_date: isAlta ? (values.get('alta_date') || null) : null
@@ -535,12 +535,12 @@
       const before = {
         member_number: current.member_number, contact_type: current.contact_type, contact_date: current.contact_date,
         visit_date: current.visit_date, hot_enabled: current.hot_enabled, warm_enabled: current.warm_enabled,
-        is_alta: current.is_alta, alta_date: current.alta_date, hot_done: current.hot_done
+        is_alta: current.is_alta, alta_date: current.alta_date, hot_done: current.hot_done, warm_done: current.warm_done
       };
       const after = {
         member_number: payload.member_number, contact_type: payload.contact_type, contact_date: payload.contact_date,
         visit_date: payload.visit_date, hot_enabled: payload.hot_enabled, warm_enabled: payload.warm_enabled,
-        is_alta: payload.is_alta, alta_date: payload.alta_date, hot_done: payload.is_alta && payload.hot_enabled ? true : current.hot_done
+        is_alta: payload.is_alta, alta_date: payload.alta_date, hot_done: current.hot_done, warm_done: current.warm_done
       };
       await writeContactFields(id, after);
       recordHistory('Modificar contacto', () => writeContactFields(id, before), () => writeContactFields(id, after));
@@ -639,9 +639,9 @@
     if (isAlta && !altaDate) throw new Error('Indica la fecha del alta.');
     const id = state.editingAltaId;
     const current = state.contacts.find((item) => item.id === id);
-    const before = { is_alta: Boolean(current?.is_alta), alta_date: current?.alta_date || null, hot_done: Boolean(current?.hot_done) };
-    const hotEnabled = Boolean(current?.hot_enabled ?? current?.visit_date);
-    const after = { is_alta: isAlta, alta_date: isAlta ? altaDate : null, hot_done: isAlta && hotEnabled ? true : Boolean(current?.hot_done) };
+    const before = { is_alta: Boolean(current?.is_alta), alta_date: current?.alta_date || null };
+
+    const after = { is_alta: isAlta, alta_date: isAlta ? altaDate : null };
     await writeContactFields(id, after);
     recordHistory('Cambiar estado de alta', () => writeContactFields(id, before), () => writeContactFields(id, after));
     $('alta-status-dialog').close();
@@ -795,9 +795,14 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   $('alta-status-checkbox').addEventListener('change', (e) => {
     $('alta-status-date-field').classList.toggle('hidden', !e.target.checked);
     $('alta-status-date').required = e.target.checked;
+    if (e.target.checked && !$('alta-status-date').value) $('alta-status-date').value = isoDay(new Date());
   });
   $('alta-status-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveAltaStatus(); } catch (error) { notice(error.message, 'error'); } });
-  $('is-alta').addEventListener('change', (e) => { $('alta-date-field').classList.toggle('hidden', !e.target.checked); $('contact-form').elements.alta_date.required = e.target.checked; });
+  $('is-alta').addEventListener('change', (e) => {
+    $('alta-date-field').classList.toggle('hidden', !e.target.checked);
+    $('contact-form').elements.alta_date.required = e.target.checked;
+    if (e.target.checked && !$('contact-form').elements.alta_date.value) $('contact-form').elements.alta_date.value = isoDay(new Date());
+  });
   document.querySelectorAll('input[name="contact_type"]').forEach((radio) => radio.addEventListener('change', (e) => {
     if (!e.target.checked) return;
     const visitContact = e.target.value === 'Visita física';
