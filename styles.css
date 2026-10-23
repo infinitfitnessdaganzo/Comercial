@@ -335,8 +335,8 @@ td:first-child { font-weight: 700; color: #283c35; }
 .membership-detail-stats article:last-child > strong { color: #b46d2e; }
 .membership-detail-note { margin: 13px 0 0; color: #87938d; font-size: 10px; line-height: 1.5; }
 @media (max-width: 980px) {
-  .outcome-grid { grid-template-columns: 1fr 1fr; }
-  .membership-summary-card { grid-column: 1 / -1; }
+  .outcome-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .membership-summary-card { grid-column: auto; }
 }
 @media (max-width: 620px) {
   .membership-summary-card { grid-template-columns: 1fr 1fr; }
