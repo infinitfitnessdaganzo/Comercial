@@ -292,13 +292,18 @@
     });
 
     const isYear = state.periodMode === 'year';
-    $('daily-title').textContent = isYear ? 'Visitas por mes' : 'Visitas por día';
+    $('daily-title').textContent = isYear ? 'Contactos, visitas y altas por mes' : 'Contactos, visitas y altas por día';
     const dayKeys = [];
     if (isYear) {
       for (let month = 1; month <= 12; month++) dayKeys.push(`${state.year}-${String(month).padStart(2, '0')}`);
     } else {
       for (let day = periodStart; day <= periodEnd; day = dateOffset(day, 1)) dayKeys.push(day);
     }
+    const contactsByDate = new Map();
+    contactsInPeriod.forEach((contact) => {
+      const key = isYear ? contact.contact_date.slice(0, 7) : contact.contact_date;
+      contactsByDate.set(key, (contactsByDate.get(key) || 0) + 1);
+    });
     const visitsByDate = new Map();
     const salesByVisitDate = new Map();
     const visitsInPeriod = state.contacts.filter((contact) => contact.visit_date && inSelectedPeriod(contact.visit_date));
@@ -307,18 +312,24 @@
       visitsByDate.set(key, (visitsByDate.get(key) || 0) + 1);
       if (contact.is_alta && contact.alta_date) salesByVisitDate.set(key, (salesByVisitDate.get(key) || 0) + 1);
     });
-    const countsByDay = dayKeys.map((day) => ({ visits: visitsByDate.get(day) || 0, sales: salesByVisitDate.get(day) || 0 }));
-    const maxDay = Math.max(1, ...countsByDay.map((item) => item.visits));
+    const countsByDay = dayKeys.map((day) => ({
+      contacts: contactsByDate.get(day) || 0,
+      visits: visitsByDate.get(day) || 0,
+      sales: salesByVisitDate.get(day) || 0
+    }));
+    const maxDay = Math.max(1, ...countsByDay.map((item) => Math.max(item.contacts, item.visits)));
+    const totalContacts = countsByDay.reduce((total, item) => total + item.contacts, 0);
     const totalVisits = countsByDay.reduce((total, item) => total + item.visits, 0);
     const totalVisitSales = countsByDay.reduce((total, item) => total + item.sales, 0);
-    $('daily-total').textContent = `${totalVisits} visitas · ${totalVisitSales} altas`;
+    $('daily-total').textContent = `${totalContacts} contactos · ${totalVisits} visitas · ${totalVisitSales} altas`;
     $('daily-chart').innerHTML = countsByDay.map((item, index) => {
       const day = dayKeys[index];
       const label = isYear ? new Intl.DateTimeFormat('es-ES', { month: 'short' }).format(new Date(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, 1)) : (state.periodMode === 'month' ? String(Number(day.slice(8, 10))) : `${Number(day.slice(8, 10))}/${Number(day.slice(5, 7))}`);
       const title = isYear ? new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, 1)) : fmtDate(day);
-      const visitHeight = item.visits ? Math.max(5, (item.visits / maxDay) * 100) : 2;
-      const salesHeight = item.visits ? (item.sales / item.visits) * 100 : 0;
-      return `<div class="day-column" title="${title}: ${item.visits} visitas · ${item.sales} altas"><div class="bar-track"><span class="bar-fill ${item.visits ? '' : 'zero'}" style="height:${visitHeight}%">${item.sales ? `<i class="bar-sales" style="height:${salesHeight}%"></i>` : ''}</span></div><small>${label}</small></div>`;
+      const contactHeight = item.contacts ? Math.max(5, (item.contacts / maxDay) * 100) : 0;
+      const visitHeight = item.visits ? Math.max(5, (item.visits / maxDay) * 100) : 0;
+      const salesHeight = item.sales ? Math.max(4, (item.sales / maxDay) * 100) : 0;
+      return `<div class="day-column" title="${title}: ${item.contacts} contactos · ${item.visits} visitas · ${item.sales} altas"><div class="bar-track"><span class="bar-series bar-contacts" style="height:${contactHeight}%"></span><i class="bar-series bar-visits" style="height:${visitHeight}%"></i><b class="bar-series bar-sales" style="height:${salesHeight}%"></b></div><small>${label}</small></div>`;
     }).join('');
     const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date) || (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 8);
     $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td><button class="contact-type-button" type="button" data-edit-contact-type="${escapeHtml(c.id)}" aria-label="Cambiar tipo de contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el tipo de contacto">${escapeHtml(c.contact_type)}</button></td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)}</td></tr>`).join('') : emptyRow(7, 'No hay contactos en este periodo.');
