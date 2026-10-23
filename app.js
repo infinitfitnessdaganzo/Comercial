@@ -122,6 +122,23 @@
     const visits = contactsInPeriod.filter((c) => Boolean(c.visit_date));
     const sales = state.contacts.filter((c) => c.is_alta && inSelectedPeriod(c.alta_date));
     const cancellations = state.cancellationsLoaded ? state.monthlyCancellations.filter((record) => cancellationMonthInSelectedPeriod(record.month_start)).reduce((total, record) => total + Number(record.cancellation_count || 0), 0) : null;
+    const membershipBaselineDate = '2026-10-23';
+    const membershipBaselineCount = 445;
+    const todayKey = isoDay(today);
+    const altasDesdeBase = state.contacts.filter((contact) => contact.is_alta && contact.alta_date && contact.alta_date > membershipBaselineDate && contact.alta_date <= todayKey).length;
+    const bajasEfectivasDesdeBase = state.cancellationsLoaded ? state.monthlyCancellations.filter((record) => {
+      if (!record.month_start) return false;
+      const end = monthEnd(record.month_start.slice(0, 7));
+      return end > membershipBaselineDate && end <= todayKey;
+    }).reduce((total, record) => total + Number(record.cancellation_count || 0), 0) : 0;
+    const sociosActuales = Math.max(0, membershipBaselineCount + altasDesdeBase - bajasEfectivasDesdeBase);
+    const mesActual = todayKey.slice(0, 7);
+    const bajasPendientesMes = state.cancellationsLoaded && todayKey < monthEnd(mesActual)
+      ? Number(state.monthlyCancellations.find((record) => record.month_start?.slice(0, 7) === mesActual)?.cancellation_count || 0)
+      : 0;
+    $('stat-current-members').textContent = sociosActuales;
+    $('stat-members-after-cancellations').textContent = Math.max(0, sociosActuales - bajasPendientesMes);
+    $('stat-members-projection-label').textContent = `Tras las bajas de ${new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(today)}`;
     const noSale = contactsInPeriod.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const visitsNoSale = visits.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const periodLabel = state.periodMode === 'month' ? 'mes' : (state.periodMode === 'year' ? 'año' : 'periodo');
