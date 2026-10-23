@@ -175,7 +175,8 @@
     state.customizingOverview = enabled;
     const container = $('overview-widgets');
     container.classList.toggle('is-customizing', enabled);
-    $('customize-overview-button').textContent = enabled ? 'Terminar' : 'Personalizar resumen';
+    $('customize-overview-button').title = enabled ? 'Terminar personalización' : 'Personalizar resumen';
+    $('customize-overview-button').setAttribute('aria-label', $('customize-overview-button').title);
     $('reset-overview-layout-button').classList.toggle('hidden', !enabled || state.view !== 'overview');
     $('overview-customize-hint').classList.toggle('hidden', !enabled);
     container.querySelectorAll('.widget-drag-handle').forEach((handle) => handle.remove());
