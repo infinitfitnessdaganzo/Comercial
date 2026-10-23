@@ -363,3 +363,7 @@ td:first-child { font-weight: 700; color: #283c35; }
 .summary-cancellation-controls { gap: 4px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .counter-button.summary-counter-button { width: 23px; height: 23px; flex: none; border: 1px solid #e5e9e5; border-radius: 6px; background: #fff; color: #748078; font-size: 15px; font-weight: 500; line-height: 1; box-shadow: none; }
 .counter-button.summary-counter-button:hover:not(:disabled) { border-color: #d4e3d8; background: #f3f8f4; color: var(--green-dark); transform: translateY(-1px); }
+/* Bajas: cifra y controles alineados en el borde derecho */
+.cancellation-outcome { position: relative; min-height: 124px; }
+.cancellation-outcome > div:first-child { width: 100%; flex: none; }
+.cancellation-outcome .summary-cancellation-controls { position: absolute; right: 21px; bottom: 10px; margin: 0; align-self: auto; transform: none; }
