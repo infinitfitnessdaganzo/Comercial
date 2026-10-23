@@ -25,7 +25,7 @@
     <div id="app-view" class="app-shell hidden">
       <aside class="sidebar">
         <div class="brand-lockup"><div class="brand-mark">IF</div><div><strong>Infinit Fitness</strong><span>Daganzo</span></div></div>
-        <nav aria-label="Principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#contacts">☷ <span>Contactos</span></a><a class="nav-link" href="#cancellations">↘ <span>Bajas</span></a><a class="nav-link" href="#followups">◷ <span>Seguimientos</span></a></nav>
+        <nav aria-label="Principal"><a class="nav-link active" href="#overview">▦ <span>Resumen</span></a><a class="nav-link" href="#contacts">☷ <span>Contactos</span></a><a class="nav-link" href="#followups">◷ <span>Seguimientos</span></a><a class="nav-link" href="#cancellations">↘ <span>Bajas</span></a></nav>
         <div class="sidebar-bottom"><span class="status-dot"></span><span>Datos sincronizados</span><button id="logout-button" class="quiet-button">Salir</button></div>
       </aside>
 
@@ -68,7 +68,7 @@
         </section>
 
         <section id="cancellations-section" class="view-section hidden">
-          <section class="panel cancellation-counter-panel"><div class="panel-heading"><div><p class="eyebrow">TOTAL MENSUAL</p><h2>Bajas del mes</h2></div><label class="toolbar-control">Mes y año<input id="cancellation-month" type="month" required /></label></div><p id="cancellation-month-label" class="muted cancellation-month-label"></p><div id="cancellation-error" class="cancellation-error hidden" role="alert"></div><div class="cancellation-counter"><button id="decrease-cancellations" class="counter-button" type="button" aria-label="Restar una baja">−</button><strong id="cancellation-count">0</strong><button id="increase-cancellations" class="counter-button" type="button" aria-label="Sumar una baja">+</button></div><p class="help-text">Pulsa + o − para actualizar el total del mes. Solo se guarda la cantidad mensual.</p></section>
+          <section class="panel cancellation-counter-panel"><div class="panel-heading"><div><p class="eyebrow">TOTAL MENSUAL</p><h2>Bajas del mes</h2></div><label class="toolbar-control">Mes y año<input id="cancellation-month" type="month" required /></label></div><p id="cancellation-month-label" class="muted cancellation-month-label"></p><div id="cancellation-error" class="cancellation-error hidden" role="alert"></div><div class="cancellation-counter"><button id="decrease-cancellations" class="counter-button" type="button" aria-label="Restar una baja">−</button><strong id="cancellation-count">0</strong><button id="increase-cancellations" class="counter-button" type="button" aria-label="Sumar una baja">+</button></div><p class="help-text">Pulsa + o − para actualizar el total del mes. Solo se guarda la cantidad mensual.</p><p id="cancellation-updated-at" class="cancellation-updated-at">Última modificación: —</p></section>
         </section>
 
         <section id="followups-section" class="view-section hidden"><div class="panel table-panel"><div class="panel-heading"><div><p class="eyebrow">TAREAS ABIERTAS</p><h2>Seguimientos pendientes</h2></div></div><div class="table-wrap"><table><thead><tr><th>Socio</th><th>Contacto</th><th>Fecha prevista</th><th>Tipo</th><th></th></tr></thead><tbody id="followup-rows"></tbody></table></div></div></section>
