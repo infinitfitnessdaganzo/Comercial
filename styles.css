@@ -135,7 +135,11 @@ th { height: 37px; padding: 0 14px; color: #84918c; font-size: 9px; font-weight:
 .sort-header:hover, .sort-header:focus-visible { color: var(--green-dark); outline: none; }
 .sort-indicator { min-width: 9px; color: var(--green); font-size: 11px; }
 .action-heading { width: 70px; text-align: center; }
-.action-cell { width: 70px; text-align: center; }
+.action-cell { width: 82px; min-width: 82px; text-align: center; }
+.action-cell { white-space: nowrap; }
+.edit-button { width: 31px; height: 31px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #56816e; }
+.edit-button:hover, .edit-button:focus-visible { border-color: #d8e9df; background: #eff7f1; color: var(--green-dark); outline: none; }
+.edit-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .delete-button { width: 31px; height: 31px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #a36459; }
 .delete-button:hover, .delete-button:focus-visible { border-color: #f0d8d4; background: #fff4f2; color: #a33d30; outline: none; }
 .delete-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
@@ -199,6 +203,13 @@ td:first-child { font-weight: 700; color: #283c35; }
 .form-divider { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 4px 0; }
 .checkline { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #5a6b64; }
 .checkline input { accent-color: var(--green); }
+.alta-panel { grid-column: 1 / -1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 1px 0 0; padding: 13px 15px; border: 1px solid #e3ebe5; border-radius: 11px; background: #f7faf7; }
+.alta-toggle { flex: 1; min-width: 0; align-items: center; }
+.alta-toggle > input { width: 17px; height: 17px; flex: none; }
+.alta-toggle > span { display: grid; gap: 3px; }
+.alta-toggle strong { color: #42564d; font-size: 11px; font-weight: 700; }
+.alta-toggle small { color: #89958f; font-size: 10px; font-weight: 400; }
+.alta-panel > .form-field { width: 190px; flex: none; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 23px; }
 .import-progress { min-height: 20px; font-size: 11px; color: var(--green-dark); line-height: 1.6; }
 .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 22px; background: radial-gradient(circle at 85% 0%, #e8f0df 0, transparent 27%), var(--canvas); }
@@ -245,6 +256,8 @@ td:first-child { font-weight: 700; color: #283c35; }
   .day-column { min-width: 14px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-divider { grid-column: auto; }
+  .alta-panel { align-items: stretch; flex-direction: column; gap: 12px; }
+  .alta-panel > .form-field { width: 100%; }
   .toolbar { flex-direction: column; }
   .toolbar .button { align-self: flex-end; }
   .footer-note { text-align: left; }
