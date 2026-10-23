@@ -367,3 +367,14 @@ td:first-child { font-weight: 700; color: #283c35; }
 .cancellation-outcome { position: relative; min-height: 124px; }
 .cancellation-outcome > div:first-child { width: 100%; flex: none; }
 .cancellation-outcome .summary-cancellation-controls { position: absolute; right: 21px; bottom: 10px; margin: 0; align-self: auto; transform: none; }
+/* Gráfico diario: visitas con su conversión a altas */
+.daily-heading-meta { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 13px; }
+.daily-legend { display: flex; align-items: center; gap: 10px; color: #788780; font-size: 10px; }
+.daily-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.daily-legend i { width: 8px; height: 8px; display: inline-block; border-radius: 3px; }
+.daily-legend .legend-visit { background: #a7cbb8; }
+.daily-legend .legend-sale { background: #0e725a; }
+.bar-fill { position: relative; flex: none; background: #a7cbb8; }
+.bar-fill.zero { background: #e7ebe6; }
+.bar-sales { position: absolute; right: 0; bottom: 0; left: 0; display: block; width: 100%; border-radius: 3px 3px 1px 1px; background: #0e725a; }
+@media (max-width: 700px) { .daily-heading-meta { gap: 8px; } .daily-legend { gap: 7px; font-size: 9px; } }
