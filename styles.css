@@ -135,6 +135,7 @@ td:first-child { font-weight: 700; color: #283c35; }
 .cancellation-month-label { margin: 25px 0 5px; font-size: 13px; }
 .cancellation-counter { display: flex; align-items: center; justify-content: center; gap: 25px; margin: 13px 0 9px; }
 .cancellation-counter strong { min-width: 100px; font: 700 58px Manrope, sans-serif; letter-spacing: -.05em; color: var(--green-dark); }
+.cancellation-updated-at { margin: 20px 0 0; color: #89958f; font-size: 11px; }
 .counter-button { width: 54px; height: 54px; border: 1px solid #dce9e1; border-radius: 50%; background: #edf6f1; color: var(--green-dark); font-size: 30px; line-height: 1; }
 .counter-button:hover:not(:disabled) { background: #dcefe4; }
 .counter-button:disabled { cursor: not-allowed; opacity: .45; }
