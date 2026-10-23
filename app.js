@@ -4,7 +4,8 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, customizingOverview: false, draggedWidgetId: null };
+  const DEFAULT_WIDGET_ORDER = ['funnel', 'outcomes', 'ratios', 'followups', 'daily', 'recent'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monthKey = (date) => (date || '').slice(0, 7);
@@ -57,9 +58,9 @@
     updateHistoryButtons();
     try {
       await action[direction]();
+      target.push(action);
       await loadContacts();
       await loadMonthlyCancellations();
-      target.push(action);
       notice(`${direction === 'undo' ? 'Deshecho' : 'Rehecho'}: ${action.label}.`);
     } catch (error) {
       source.push(action);
@@ -156,11 +157,57 @@
     $('year-filter').value = state.year;
   }
 
+  function getWidgetElements() { return [...$('overview-widgets').querySelectorAll('[data-widget-id]')]; }
+  function arrangeWidgets(order) {
+    const container = $('overview-widgets');
+    const byId = new Map(getWidgetElements().map((widget) => [widget.dataset.widgetId, widget]));
+    [...order, ...DEFAULT_WIDGET_ORDER].forEach((id) => { const widget = byId.get(id); if (widget) { container.append(widget); byId.delete(id); } });
+    byId.forEach((widget) => container.append(widget));
+  }
+  async function saveWidgetOrder(order, showNotice = true) {
+    const { data, error } = await db.auth.updateUser({ data: { dashboard_widget_order: order } });
+    if (error) { notice(`No se pudo guardar el orden: ${error.message}`, 'error'); return false; }
+    state.user = data.user || state.user;
+    if (showNotice) notice('Orden del resumen guardado.');
+    return true;
+  }
+  function setOverviewEditMode(enabled) {
+    state.customizingOverview = enabled;
+    const container = $('overview-widgets');
+    container.classList.toggle('is-customizing', enabled);
+    $('customize-overview-button').textContent = enabled ? 'Terminar' : 'Personalizar resumen';
+    $('reset-overview-layout-button').classList.toggle('hidden', !enabled || state.view !== 'overview');
+    $('overview-customize-hint').classList.toggle('hidden', !enabled);
+    container.querySelectorAll('.widget-drag-handle').forEach((handle) => handle.remove());
+    if (enabled) getWidgetElements().forEach((widget) => {
+      const handle = document.createElement('button');
+      handle.type = 'button'; handle.className = 'widget-drag-handle'; handle.draggable = true;
+      handle.textContent = '⠿'; handle.title = 'Arrastra para mover; usa flechas arriba y abajo para ordenar';
+      handle.setAttribute('aria-label', `Mover ${widget.querySelector('h2')?.textContent || 'bloque'}`);
+      handle.addEventListener('keydown', async (event) => {
+        if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
+        event.preventDefault();
+        const siblings = getWidgetElements(); const index = siblings.indexOf(widget);
+        const target = siblings[index + (event.key === 'ArrowUp' ? -1 : 1)];
+        if (!target) return;
+        if (event.key === 'ArrowUp') target.before(widget); else target.after(widget);
+        handle.focus();
+        await saveWidgetOrder(getWidgetElements().map((item) => item.dataset.widgetId), false);
+      });
+      widget.append(handle);
+    });
+  }
+  async function applySavedWidgetOrder() {
+    const order = state.user?.user_metadata?.dashboard_widget_order;
+    if (Array.isArray(order)) arrangeWidgets(order);
+  }
   function setView(view) {
     state.view = view;
     document.querySelectorAll('.view-section').forEach((section) => section.classList.toggle('hidden', section.id !== `${view}-section`));
     document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${view}`));
     $('page-title').textContent = ({ overview: 'Resumen', contacts: 'Contactos', cancellations: 'Altas y bajas', followups: 'Seguimientos' })[view];
+    $('customize-overview-button').classList.toggle('hidden', view !== 'overview');
+    if (view !== 'overview' && state.customizingOverview) setOverviewEditMode(false);
     if (view === 'contacts') {
       state.sortBy = 'contact_date';
       state.sortDirection = 'desc';
@@ -400,10 +447,9 @@
     recordHistory(`Cambiar bajas de ${month}`, () => writeMonthlyCount(month, current), () => writeMonthlyCount(month, count));
     await loadMonthlyCancellations();
   }
-
   function contactRow(c) {
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
-    return `<tr><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
+    return `<tr><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td><button class="contact-type-button" type="button" data-edit-contact-type="${escapeHtml(c.id)}" aria-label="Cambiar tipo de contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el tipo de contacto">${escapeHtml(c.contact_type)}</button></td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
   function openContactTypeDialog(id) {
     const contact = state.contacts.find((item) => item.id === id);
@@ -411,6 +457,10 @@
     state.editingContactTypeId = id;
     $('contact-type-member').textContent = `Socio ${contact.member_number || 'sin número'}`;
     $('contact-type-select').value = contact.contact_type;
+    $('contact-type-visit-date').value = contact.visit_date || '';
+    const needsVisitDate = contact.contact_type === 'Visita física';
+    $('contact-type-visit-date-field').classList.toggle('hidden', !needsVisitDate);
+    $('contact-type-visit-date').required = needsVisitDate;
     $('contact-type-dialog').showModal();
   }
   async function saveContactType() {
@@ -505,7 +555,6 @@
     notice(wasEditing ? 'Contacto modificado.' : 'Contacto guardado.');
     await loadContacts();
   }
-
   function openNewContact() {
     state.editingContactId = null;
     const form = $('contact-form');
@@ -611,7 +660,6 @@
       notice(`No se pudo actualizar el seguimiento: ${error.message}`, 'error');
     }
   }
-
   function requestDeleteContact(id) {
     const contact = state.contacts.find((item) => item.id === id);
     if (!contact) return;
@@ -719,6 +767,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     const deleteButton = e.target.closest('[data-delete-contact]');
     if (deleteButton) requestDeleteContact(deleteButton.dataset.deleteContact);
   });
+
   $('close-delete-confirm').addEventListener('click', () => $('delete-confirm').close());
   $('cancel-delete').addEventListener('click', () => $('delete-confirm').close());
   $('delete-confirm').addEventListener('close', () => { state.pendingDelete = null; });
@@ -754,6 +803,35 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
   $('contact-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContact(e.currentTarget); } catch (error) { notice(error.message, 'error'); } });
+  $('customize-overview-button').addEventListener('click', () => setOverviewEditMode(!state.customizingOverview));
+  $('reset-overview-layout-button').addEventListener('click', async () => {
+    arrangeWidgets(DEFAULT_WIDGET_ORDER);
+    if (await saveWidgetOrder(DEFAULT_WIDGET_ORDER)) setOverviewEditMode(true);
+  });
+  const widgetContainer = $('overview-widgets');
+  widgetContainer.addEventListener('dragstart', (event) => {
+    const handle = event.target.closest('.widget-drag-handle');
+    if (!handle || !state.customizingOverview) { event.preventDefault(); return; }
+    const widget = handle.closest('[data-widget-id]'); state.draggedWidgetId = widget.dataset.widgetId;
+    widget.classList.add('is-dragging'); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', state.draggedWidgetId);
+  });
+  widgetContainer.addEventListener('dragover', (event) => {
+    if (!state.draggedWidgetId) return;
+    const target = event.target.closest('[data-widget-id]');
+    if (!target || target.dataset.widgetId === state.draggedWidgetId) return;
+    event.preventDefault();
+    const dragged = widgetContainer.querySelector(`[data-widget-id="${state.draggedWidgetId}"]`);
+    const rect = target.getBoundingClientRect();
+    if (event.clientY < rect.top + rect.height / 2) target.before(dragged); else target.after(dragged);
+  });
+  widgetContainer.addEventListener('drop', async (event) => {
+    if (!state.draggedWidgetId) return;
+    event.preventDefault(); await saveWidgetOrder(getWidgetElements().map((widget) => widget.dataset.widgetId));
+  });
+  widgetContainer.addEventListener('dragend', () => {
+    widgetContainer.querySelectorAll('.is-dragging').forEach((widget) => widget.classList.remove('is-dragging'));
+    state.draggedWidgetId = null;
+  });
   $('undo-button').addEventListener('click', () => runHistory('undo'));
   $('redo-button').addEventListener('click', () => runHistory('redo'));
   $('logout-button').addEventListener('click', () => db?.auth.signOut());
@@ -772,6 +850,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     $('auth-view').classList.toggle('hidden', Boolean(state.user));
     $('app-view').classList.toggle('hidden', !state.user);
     if (state.user) {
+      applySavedWidgetOrder();
       window.setTimeout(() => {
         loadContacts().catch((error) => notice(`No se pudieron cargar los contactos: ${error.message}`, 'error'));
         loadMonthlyCancellations().catch((error) => {
