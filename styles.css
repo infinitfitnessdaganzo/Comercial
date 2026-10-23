@@ -358,3 +358,8 @@ td:first-child { font-weight: 700; color: #283c35; }
 @media (max-width: 700px) { .outcome-grid { grid-template-columns: 1fr; } .membership-summary-card { grid-template-columns: 1fr 1fr; } }
 .member-number-cell { font-weight: 700; font-size: 14px; letter-spacing: .01em; color: #263d33; }
 
+/* Ajustes finales del resumen: contenido arriba y controles compactos */
+.cancellation-outcome > div:first-child, .balance-outcome > div:first-child { transform: translateY(-9px); }
+.summary-cancellation-controls { gap: 4px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.counter-button.summary-counter-button { width: 23px; height: 23px; flex: none; border: 1px solid #e5e9e5; border-radius: 6px; background: #fff; color: #748078; font-size: 15px; font-weight: 500; line-height: 1; box-shadow: none; }
+.counter-button.summary-counter-button:hover:not(:disabled) { border-color: #d4e3d8; background: #f3f8f4; color: var(--green-dark); transform: translateY(-1px); }
