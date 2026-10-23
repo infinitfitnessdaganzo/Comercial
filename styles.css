@@ -194,8 +194,12 @@ td:first-child { font-weight: 700; color: #283c35; }
 .cancellation-error { padding: 10px; border-radius: 8px; background: #fff0ed; color: #9b4435; font-size: 12px; }
 .overdue td { background: #fffaf5; }
 .monthly-comparison-panel { margin-top: 16px; }
-.monthly-ratio-help { margin: -5px 21px 10px; }
+.monthly-balance-help { margin: -5px 21px 10px; }
 .monthly-total-row th, .monthly-total-row td { background: #f6f8f5; border-top: 2px solid #e7ece7; color: #34483f; font-weight: 700; }
+.monthly-balance { font-weight: 700; }
+.monthly-balance.positive { color: #26734f; }
+.monthly-balance.negative { color: #b5473a; }
+.monthly-balance.neutral { color: #7e8a85; }
 .followup-tables-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 15px; }
 .notice { position: fixed; z-index: 10; top: 20px; left: 50%; transform: translateX(-50%); padding: 12px 17px; border-radius: 9px; background: #eaf5ed; color: #26734f; box-shadow: var(--shadow); font-size: 12px; max-width: min(600px, 90vw); }
 .notice.error { background: #fff0ed; color: #9b4435; }
@@ -283,7 +287,7 @@ td:first-child { font-weight: 700; color: #283c35; }
   .ratio-result { min-width: 95px; }
   .ratio-track { width: 46px; }
   .panel { padding: 16px; }
-  .monthly-ratio-help { margin-inline: 16px; }
+  .monthly-balance-help { margin-inline: 16px; }
   .table-panel { padding: 16px 0 0; }
   .panel-heading { padding: 0 16px !important; }
   .today-followups-grid { grid-template-columns: 1fr; gap: 13px; }
