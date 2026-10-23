@@ -219,6 +219,10 @@
     const count = Number(record?.cancellation_count || 0);
     $('cancellation-count').textContent = count;
     $('cancellation-month-label').textContent = month ? `Total de ${cancellationMonthLabel(`${month}-01`)}` : '';
+    const lastUpdated = record?.updated_at || record?.created_at;
+    $('cancellation-updated-at').textContent = lastUpdated
+      ? `Última modificación: ${new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(lastUpdated))}`
+      : 'Última modificación: todavía no hay cambios guardados';
     $('decrease-cancellations').disabled = count === 0;
     $('increase-cancellations').disabled = false;
   }
