@@ -139,6 +139,9 @@
     $('stat-current-members').textContent = sociosActuales;
     $('stat-members-after-cancellations').textContent = Math.max(0, sociosActuales - bajasPendientesMes);
     $('stat-members-projection-label').textContent = `Tras las bajas de ${new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(today)}`;
+    $('stat-current-members-detail').textContent = sociosActuales;
+    $('stat-members-after-cancellations-detail').textContent = Math.max(0, sociosActuales - bajasPendientesMes);
+    $('stat-members-projection-label-detail').textContent = `Después de las bajas de ${new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(today)}`;
     const noSale = contactsInPeriod.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const visitsNoSale = visits.filter((c) => !c.alta_date || c.alta_date > periodEnd);
     const periodLabel = state.periodMode === 'month' ? 'mes' : (state.periodMode === 'year' ? 'año' : 'periodo');
