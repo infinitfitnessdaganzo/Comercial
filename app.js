@@ -224,13 +224,12 @@
     const editAttrs = `data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}"`;
     const editLabel = `Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'} de socio ${escapeHtml(c.member_number || 'sin número')}`;
     const dateButton = due ? `<button class="pill ${statusClass} followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="Haz clic para cambiar la fecha">${fmtDate(due)}</button>` : '<span class="pill neutral">—</span>';
-    const editButton = due ? `<button class="followup-date-edit" type="button" ${editAttrs} aria-label="${editLabel}" title="Cambiar fecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button>` : '';
-    return `<span class="followup-date-cell">${dateButton}${editButton}</span>`;
+    return `<span class="followup-date-cell">${dateButton}</span>`;
   }
   function altaStatusCell(c) {
-    return c.is_alta
-      ? `<span class="pill success">Alta · ${fmtDate(c.alta_date)}</span>`
-      : '<span class="pill neutral">Sin alta</span>';
+    const label = c.is_alta ? `Alta · ${fmtDate(c.alta_date)}` : 'Sin alta';
+    const statusClass = c.is_alta ? 'success' : 'neutral';
+    return `<button class="pill ${statusClass} alta-status-button" type="button" data-edit-alta="${escapeHtml(c.id)}" aria-label="Modificar estado de alta del socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el estado">${label}</button>`;
   }
   function cancellationMonthLabel(monthStart) {
     const [year, month] = monthStart.slice(0, 7).split('-').map(Number);
@@ -399,6 +398,31 @@
     $('followup-date-dialog').close();
     state.followupDateEdit = null;
     notice(date ? 'Fecha de seguimiento actualizada.' : 'Se ha restablecido la fecha automática.');
+    await loadContacts();
+  }
+
+  function openAltaStatusDialog(id) {
+    const contact = state.contacts.find((item) => item.id === id);
+    if (!contact) return;
+    state.editingAltaId = id;
+    $('alta-status-member').textContent = `Socio ${contact.member_number || 'sin número'}`;
+    $('alta-status-checkbox').checked = Boolean(contact.is_alta);
+    $('alta-status-date').value = contact.alta_date || '';
+    $('alta-status-date-field').classList.toggle('hidden', !contact.is_alta);
+    $('alta-status-date').required = Boolean(contact.is_alta);
+    $('alta-status-dialog').showModal();
+  }
+
+  async function saveAltaStatus() {
+    if (!state.editingAltaId) return;
+    const isAlta = $('alta-status-checkbox').checked;
+    const altaDate = $('alta-status-date').value || null;
+    if (isAlta && !altaDate) throw new Error('Indica la fecha del alta.');
+    const { error } = await db.from('gym_contacts').update({ is_alta: isAlta, alta_date: isAlta ? altaDate : null }).eq('id', state.editingAltaId).eq('owner_id', state.user.id);
+    if (error) throw error;
+    $('alta-status-dialog').close();
+    state.editingAltaId = null;
+    notice(isAlta ? 'Alta actualizada.' : 'Estado actualizado: sin alta.');
     await loadContacts();
   }
 
@@ -624,6 +648,8 @@
   document.body.addEventListener('click', (e) => {
     const editFollowupDate = e.target.closest('[data-edit-followup-date]');
     if (editFollowupDate) openFollowupDateDialog(editFollowupDate.dataset.editFollowupDate, editFollowupDate.dataset.followupKind);
+    const editAlta = e.target.closest('[data-edit-alta]');
+    if (editAlta) openAltaStatusDialog(editAlta.dataset.editAlta);
     const button = e.target.closest('[data-complete]');
     if (button) completeFollowup(button.dataset.complete, button.dataset.field);
     const editButton = e.target.closest('[data-edit-contact]');
@@ -642,6 +668,13 @@
   $('cancel-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
   $('reset-followup-date').addEventListener('click', async () => { try { await saveFollowupDate(''); } catch (error) { notice(error.message, 'error'); } });
   $('followup-date-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveFollowupDate($('followup-date-input').value); } catch (error) { notice(error.message, 'error'); } });
+  $('close-alta-status').addEventListener('click', () => $('alta-status-dialog').close());
+  $('cancel-alta-status').addEventListener('click', () => $('alta-status-dialog').close());
+  $('alta-status-checkbox').addEventListener('change', (e) => {
+    $('alta-status-date-field').classList.toggle('hidden', !e.target.checked);
+    $('alta-status-date').required = e.target.checked;
+  });
+  $('alta-status-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveAltaStatus(); } catch (error) { notice(error.message, 'error'); } });
   $('is-alta').addEventListener('change', (e) => { $('alta-date-field').classList.toggle('hidden', !e.target.checked); $('contact-form').elements.alta_date.required = e.target.checked; });
   document.querySelectorAll('input[name="contact_type"]').forEach((radio) => radio.addEventListener('change', (e) => {
     if (!e.target.checked) return;
