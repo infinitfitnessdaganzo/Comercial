@@ -5,7 +5,8 @@
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
   const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, customizingOverview: false, draggedWidgetId: null };
-  const DEFAULT_WIDGET_ORDER = ['funnel', 'outcomes', 'ratios', 'followups', 'daily', 'recent'];
+  const DEFAULT_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'daily', 'recent'];
+  const LEGACY_DEFAULT_WIDGET_ORDER = ['funnel', 'outcomes', 'ratios', 'followups', 'daily', 'recent'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monthKey = (date) => (date || '').slice(0, 7);
@@ -200,7 +201,13 @@
   }
   async function applySavedWidgetOrder() {
     const order = state.user?.user_metadata?.dashboard_widget_order;
-    if (Array.isArray(order)) arrangeWidgets(order);
+    if (!Array.isArray(order)) { arrangeWidgets(DEFAULT_WIDGET_ORDER); return; }
+    if (JSON.stringify(order) === JSON.stringify(LEGACY_DEFAULT_WIDGET_ORDER)) {
+      arrangeWidgets(DEFAULT_WIDGET_ORDER);
+      await saveWidgetOrder(DEFAULT_WIDGET_ORDER, false);
+      return;
+    }
+    arrangeWidgets(order);
   }
   function setView(view) {
     state.view = view;
