@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null, editingContactId: null };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -265,7 +265,7 @@
 
   function contactRow(c) {
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
-    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
+    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
@@ -287,13 +287,75 @@
     if (!payload.member_number) throw new Error('Indica el número de socio.');
     if (!payload.contact_type) throw new Error('Selecciona un tipo de contacto.');
     if (isAlta && !payload.alta_date) throw new Error('Indica la fecha del alta.');
-    const { error } = await db.from('gym_contacts').insert(payload);
+    const currentDate = isoDay(new Date());
+    const cutoffDate = dateOffset(currentDate, -30);
+    let duplicateQuery = db.from('gym_contacts')
+      .select('id, contact_date')
+      .eq('owner_id', state.user.id)
+      .eq('member_number', payload.member_number)
+      .gte('contact_date', cutoffDate)
+      .lte('contact_date', currentDate)
+      .limit(1);
+    if (state.editingContactId) duplicateQuery = duplicateQuery.neq('id', state.editingContactId);
+    const { data: recentDuplicates, error: duplicateError } = await duplicateQuery;
+    if (duplicateError) throw new Error(`No se pudo comprobar si ya existe un contacto reciente: ${duplicateError.message}`);
+    if (recentDuplicates?.length) {
+      throw new Error(`El socio ${payload.member_number} ya tiene un contacto en los últimos 30 días (${fmtDate(recentDuplicates[0].contact_date)}). No se ha guardado.`);
+    }
+    const query = state.editingContactId
+      ? db.from('gym_contacts').update({
+          member_number: payload.member_number,
+          contact_type: payload.contact_type,
+          contact_date: payload.contact_date,
+          visit_date: payload.visit_date,
+          is_alta: payload.is_alta,
+          alta_date: payload.alta_date
+        }).eq('id', state.editingContactId).eq('owner_id', state.user.id)
+      : db.from('gym_contacts').insert(payload);
+    const { error } = await query;
     if (error) throw error;
     form.reset();
     $('alta-date-field').classList.add('hidden');
+    const wasEditing = Boolean(state.editingContactId);
+    state.editingContactId = null;
     $('contact-dialog').close();
-    notice('Contacto guardado.');
+    notice(wasEditing ? 'Contacto modificado.' : 'Contacto guardado.');
     await loadContacts();
+  }
+
+  function openNewContact() {
+    state.editingContactId = null;
+    const form = $('contact-form');
+    form.reset();
+    $('contact-dialog-eyebrow').textContent = 'NUEVO REGISTRO';
+    $('contact-dialog-title').textContent = 'Registrar contacto';
+    $('save-contact-button').textContent = 'Guardar contacto';
+    $('alta-date-field').classList.add('hidden');
+    form.elements.alta_date.required = false;
+    form.elements.contact_date.value = isoDay(today);
+    $('contact-dialog').showModal();
+  }
+
+  function openEditContact(id) {
+    const contact = state.contacts.find((item) => item.id === id);
+    if (!contact) return;
+    state.editingContactId = id;
+    const form = $('contact-form');
+    form.reset();
+    form.elements.member_number.value = contact.member_number || '';
+    form.elements.contact_date.value = contact.contact_date || '';
+    form.elements.visit_date.value = contact.visit_date || '';
+    form.querySelectorAll('input[name="contact_type"]').forEach((radio) => {
+      radio.checked = radio.value === contact.contact_type;
+    });
+    $('is-alta').checked = Boolean(contact.is_alta);
+    $('alta-date-field').classList.toggle('hidden', !contact.is_alta);
+    form.elements.alta_date.value = contact.alta_date || '';
+    form.elements.alta_date.required = Boolean(contact.is_alta);
+    $('contact-dialog-eyebrow').textContent = 'EDITAR REGISTRO';
+    $('contact-dialog-title').textContent = 'Modificar contacto';
+    $('save-contact-button').textContent = 'Guardar cambios';
+    $('contact-dialog').showModal();
   }
 
   async function completeFollowup(id, field) {
@@ -516,6 +578,8 @@
   document.body.addEventListener('click', (e) => {
     const button = e.target.closest('[data-complete]');
     if (button) completeFollowup(button.dataset.complete, button.dataset.field);
+    const editButton = e.target.closest('[data-edit-contact]');
+    if (editButton) openEditContact(editButton.dataset.editContact);
     const deleteButton = e.target.closest('[data-delete-contact]');
     if (deleteButton) requestDeleteContact(deleteButton.dataset.deleteContact);
   });
@@ -523,7 +587,7 @@
   $('cancel-delete').addEventListener('click', () => $('delete-confirm').close());
   $('delete-confirm').addEventListener('close', () => { state.pendingDelete = null; });
   $('confirm-delete').addEventListener('click', deletePendingContact);
-  $('new-contact-button').addEventListener('click', () => { $('contact-form').elements.contact_date.value = isoDay(today); $('contact-dialog').showModal(); });
+  $('new-contact-button').addEventListener('click', openNewContact);
   $('close-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('cancel-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('is-alta').addEventListener('change', (e) => { $('alta-date-field').classList.toggle('hidden', !e.target.checked); $('contact-form').elements.alta_date.required = e.target.checked; });
