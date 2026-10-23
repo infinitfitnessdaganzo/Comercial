@@ -17,11 +17,7 @@ Aplicación privada para registrar contactos, visitas, seguimientos Hot/Warm, al
 
 Con Node.js instalado, ejecuta `node server.mjs` desde esta carpeta y abre `http://localhost:4173`.
 
-## Importar el historial
+El apartado **Altas y bajas** permite actualizar el contador de bajas por mes y muestra el histórico mensual de altas, bajas y ratio altas/bajas, además de sus totales.
 
-Desde **Contactos → Importar Excel**, selecciona el libro `.xlsm`. El importador reconoce las pestañas mensuales, conserva el mes/pestaña y fila de origen y usa una clave de origen para evitar duplicar registros al repetir la carga. Los seguimientos se calculan a partir de la fecha de visita; estados marcados sin visita y altas sin fecha se señalan para revisión. Las filas con alta anterior al contacto también se conservan con una advertencia.
-
-En el mismo proceso se leen los totales de `Bajas del mes` de cada pestaña mensual. Se importan solo los meses que aún no tienen un dato guardado, para conservar cualquier corrección que hayas hecho en la aplicación. Desde **Bajas**, los botones + y − actualizan el total del mes y muestran la última fecha y hora de modificación.
-
-Las altas del panel se agrupan por `alta_date`; los contactos y visitas, por `contact_date`; las bajas, por mes registrado. En periodos personalizados se suman las bajas de los meses que coinciden con el intervalo. El balance muestra altas menos bajas. Los ratios de contactos y visitas usan las altas del mes frente al volumen de contactos o visitas de ese mes, según la regla que has indicado.
+Las altas se agrupan por `alta_date`; los contactos y visitas, por `contact_date`; las bajas, por mes registrado. En periodos personalizados se suman las bajas de los meses que se solapan con el intervalo. El balance muestra altas menos bajas. Los ratios de contactos y visitas se calculan con las altas del periodo frente al volumen de contactos o visitas correspondiente.
 
