@@ -298,9 +298,15 @@
     $('monthly-comparison-rows').innerHTML = months.length ? months.map((month) => {
       const sales = monthlySales.get(month) || 0;
       const losses = monthlyLosses.get(month) || 0;
-      return `<tr><td>${cancellationMonthLabel(`${month}-01`)}</td><td>${sales}</td><td>${losses}</td><td>${fmtPercent(sales, losses)}</td></tr>`;
+      const balance = sales - losses;
+      const balanceClass = balance > 0 ? 'positive' : (balance < 0 ? 'negative' : 'neutral');
+      const balanceLabel = balance > 0 ? `+${balance}` : String(balance);
+      return `<tr><td>${cancellationMonthLabel(`${month}-01`)}</td><td>${sales}</td><td>${losses}</td><td><span class="monthly-balance ${balanceClass}">${balanceLabel}</span></td></tr>`;
     }).join('') : emptyRow(4, 'Todavía no hay altas ni bajas registradas.');
-    $('monthly-comparison-total').innerHTML = months.length ? `<tr class="monthly-total-row"><th>Total</th><td>${totalSales}</td><td>${totalLosses}</td><td>${fmtPercent(totalSales, totalLosses)}</td></tr>` : '';
+    const totalBalance = totalSales - totalLosses;
+    const totalBalanceClass = totalBalance > 0 ? 'positive' : (totalBalance < 0 ? 'negative' : 'neutral');
+    const totalBalanceLabel = totalBalance > 0 ? `+${totalBalance}` : String(totalBalance);
+    $('monthly-comparison-total').innerHTML = months.length ? `<tr class="monthly-total-row"><th>Total</th><td>${totalSales}</td><td>${totalLosses}</td><td><span class="monthly-balance ${totalBalanceClass}">${totalBalanceLabel}</span></td></tr>` : '';
   }
 
   async function adjustMonthlyCancellations(delta, monthOverride = null) {
