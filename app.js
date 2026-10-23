@@ -36,6 +36,8 @@
     return isoDay(out);
   }
   function dueFor(contact, kind) {
+    const customDate = contact[`${kind}_due_date`];
+    if (customDate) return customDate;
     const baseDate = contact.visit_date || contact.contact_date;
     if (!baseDate) return '';
     return dateOffset(baseDate, kind === 'hot' ? 1 : 8);
@@ -215,7 +217,8 @@
     const done = kind === 'hot' ? c.hot_done : c.warm_done;
     if (done) return '<span class="pill success">Hecho</span>';
     const due = dueFor(c, kind);
-    return `<span class="pill ${due ? kind : 'neutral'}">${due ? fmtDate(due) : '—'}</span>`;
+    const editButton = due ? `<button class="followup-date-edit" type="button" data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}" aria-label="Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'} de socio ${escapeHtml(c.member_number || 'sin número')}" title="Cambiar fecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button>` : '';
+    return `<span class="followup-date-cell"><span class="pill ${due ? kind : 'neutral'}">${due ? fmtDate(due) : '—'}</span>${editButton}</span>`;
   }
   function altaStatusCell(c) {
     return c.is_alta
@@ -367,6 +370,29 @@
     $('contact-dialog-title').textContent = 'Modificar contacto';
     $('save-contact-button').textContent = 'Guardar cambios';
     $('contact-dialog').showModal();
+  }
+
+  function openFollowupDateDialog(id, kind) {
+    const contact = state.contacts.find((item) => item.id === id);
+    if (!contact || !['hot', 'warm'].includes(kind)) return;
+    state.followupDateEdit = { id, kind };
+    $('followup-date-title').textContent = `Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'}`;
+    $('followup-date-member').textContent = `Socio ${contact.member_number || 'sin número'}`;
+    $('followup-date-input').value = contact[`${kind}_due_date`] || dueFor(contact, kind) || '';
+    $('followup-date-dialog').showModal();
+  }
+
+  async function saveFollowupDate(date) {
+    const target = state.followupDateEdit;
+    if (!target) return;
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Elige una fecha válida.');
+    const column = `${target.kind}_due_date`;
+    const { error } = await db.from('gym_contacts').update({ [column]: date || null }).eq('id', target.id).eq('owner_id', state.user.id);
+    if (error) throw error;
+    $('followup-date-dialog').close();
+    state.followupDateEdit = null;
+    notice(date ? 'Fecha de seguimiento actualizada.' : 'Se ha restablecido la fecha automática.');
+    await loadContacts();
   }
 
   async function completeFollowup(id, field) {
@@ -589,6 +615,8 @@
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
   document.body.addEventListener('click', (e) => {
+    const editFollowupDate = e.target.closest('[data-edit-followup-date]');
+    if (editFollowupDate) openFollowupDateDialog(editFollowupDate.dataset.editFollowupDate, editFollowupDate.dataset.followupKind);
     const button = e.target.closest('[data-complete]');
     if (button) completeFollowup(button.dataset.complete, button.dataset.field);
     const editButton = e.target.closest('[data-edit-contact]');
@@ -603,6 +631,10 @@
   $('new-contact-button').addEventListener('click', openNewContact);
   $('close-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('cancel-dialog').addEventListener('click', () => $('contact-dialog').close());
+  $('close-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
+  $('cancel-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
+  $('reset-followup-date').addEventListener('click', async () => { try { await saveFollowupDate(''); } catch (error) { notice(error.message, 'error'); } });
+  $('followup-date-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveFollowupDate($('followup-date-input').value); } catch (error) { notice(error.message, 'error'); } });
   $('is-alta').addEventListener('change', (e) => { $('alta-date-field').classList.toggle('hidden', !e.target.checked); $('contact-form').elements.alta_date.required = e.target.checked; });
   document.querySelectorAll('input[name="contact_type"]').forEach((radio) => radio.addEventListener('change', (e) => {
     if (!e.target.checked) return;
