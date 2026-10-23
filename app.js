@@ -36,8 +36,9 @@
     return isoDay(out);
   }
   function dueFor(contact, kind) {
-    if (!contact.visit_date) return '';
-    return dateOffset(contact.visit_date, kind === 'hot' ? 1 : 8);
+    const baseDate = contact.visit_date || contact.contact_date;
+    if (!baseDate) return '';
+    return dateOffset(baseDate, kind === 'hot' ? 1 : 8);
   }
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -195,9 +196,11 @@
 
     const tasks = state.contacts.flatMap((c) => {
       if (c.is_alta) return [];
+      const hotEnabled = Boolean(c.hot_enabled ?? c.visit_date);
+      const warmEnabled = Boolean(c.warm_enabled ?? c.visit_date);
       return [
-        !c.hot_done && dueFor(c, 'hot') ? { c, kind: 'Hot', date: dueFor(c, 'hot'), field: 'hot_done' } : null,
-        !c.warm_done && dueFor(c, 'warm') ? { c, kind: 'Warm', date: dueFor(c, 'warm'), field: 'warm_done' } : null
+        hotEnabled && !c.hot_done && dueFor(c, 'hot') ? { c, kind: 'Hot', date: dueFor(c, 'hot'), field: 'hot_done' } : null,
+        warmEnabled && !c.warm_done && dueFor(c, 'warm') ? { c, kind: 'Warm', date: dueFor(c, 'warm'), field: 'warm_done' } : null
       ].filter(Boolean);
     }).sort((a, b) => a.date.localeCompare(b.date));
     const dueTodayOrPast = tasks.filter((t) => t.date <= isoDay(today));
@@ -206,6 +209,8 @@
   }
 
   function followupStatusCell(c, kind) {
+    const enabled = c[`${kind}_enabled`] ?? Boolean(c.visit_date);
+    if (!enabled) return '<span class="pill neutral">—</span>';
     if (c.is_alta) return '<span class="pill neutral">—</span>';
     const done = kind === 'hot' ? c.hot_done : c.warm_done;
     if (done) return '<span class="pill success">Hecho</span>';
@@ -279,6 +284,8 @@
       contact_type: values.get('contact_type'),
       contact_date: values.get('contact_date'),
       visit_date: visitDate,
+      hot_enabled: values.get('hot_enabled') === 'on',
+      warm_enabled: values.get('warm_enabled') === 'on',
       hot_done: false,
       warm_done: false,
       is_alta: isAlta,
@@ -308,6 +315,8 @@
           contact_type: payload.contact_type,
           contact_date: payload.contact_date,
           visit_date: payload.visit_date,
+          hot_enabled: payload.hot_enabled,
+          warm_enabled: payload.warm_enabled,
           is_alta: payload.is_alta,
           alta_date: payload.alta_date
         }).eq('id', state.editingContactId).eq('owner_id', state.user.id)
@@ -345,6 +354,8 @@
     form.elements.member_number.value = contact.member_number || '';
     form.elements.contact_date.value = contact.contact_date || '';
     form.elements.visit_date.value = contact.visit_date || '';
+    form.elements.hot_enabled.checked = Boolean(contact.hot_enabled ?? contact.visit_date);
+    form.elements.warm_enabled.checked = Boolean(contact.warm_enabled ?? contact.visit_date);
     form.querySelectorAll('input[name="contact_type"]').forEach((radio) => {
       radio.checked = radio.value === contact.contact_type;
     });
@@ -450,6 +461,8 @@
           contact_type: type || 'Web/Email',
           contact_date: contactDate,
           visit_date: visitDate,
+          hot_enabled: Boolean(visitDate),
+          warm_enabled: Boolean(visitDate),
           hot_done: Boolean(visitDate && rawHotDone),
           warm_done: Boolean(visitDate && rawWarmDone),
           is_alta: isAlta,
@@ -591,6 +604,12 @@
   $('close-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('cancel-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('is-alta').addEventListener('change', (e) => { $('alta-date-field').classList.toggle('hidden', !e.target.checked); $('contact-form').elements.alta_date.required = e.target.checked; });
+  document.querySelectorAll('input[name="contact_type"]').forEach((radio) => radio.addEventListener('change', (e) => {
+    if (!e.target.checked) return;
+    const visitContact = e.target.value === 'Visita física';
+    $('contact-form').elements.hot_enabled.checked = visitContact;
+    $('contact-form').elements.warm_enabled.checked = visitContact;
+  }));
   $('contact-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContact(e.currentTarget); } catch (error) { notice(error.message, 'error'); } });
   $('import-button').addEventListener('click', () => { $('import-progress').textContent = ''; $('import-dialog').showModal(); });
   $('close-import').addEventListener('click', () => $('import-dialog').close());
