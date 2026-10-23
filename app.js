@@ -227,13 +227,14 @@
     if (!enabled) return '<span class="pill neutral">—</span>';
     if (c.is_alta) return '<span class="pill neutral">—</span>';
     const done = kind === 'hot' ? c.hot_done : c.warm_done;
-    if (done) return '<span class="pill success">Hecho</span>';
+    const editAttrs = `data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}"`;
+    const editLabel = `Elegir nueva fecha ${kind === 'hot' ? 'Hot' : 'Warm'} para el socio ${escapeHtml(c.member_number || 'sin número')}`;
+    if (done) return `<button class="pill success followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="Pulsa para programar otro seguimiento">Hecho</button>`;
     const due = dueFor(c, kind);
     const isDue = due && due <= isoDay(today);
     const statusClass = due ? (isDue ? 'attention' : 'hot') : 'neutral';
-    const editAttrs = `data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}"`;
-    const editLabel = `Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'} de socio ${escapeHtml(c.member_number || 'sin número')}`;
-    const dateButton = due ? `<button class="pill ${statusClass} followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="Haz clic para cambiar la fecha">${fmtDate(due)}</button>` : '<span class="pill neutral">—</span>';
+    const dateEditLabel = `Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'} de socio ${escapeHtml(c.member_number || 'sin número')}`;
+    const dateButton = due ? `<button class="pill ${statusClass} followup-date-pill" type="button" ${editAttrs} aria-label="${dateEditLabel}" title="Haz clic para cambiar la fecha">${fmtDate(due)}</button>` : '<span class="pill neutral">—</span>';
     return `<span class="followup-date-cell">${dateButton}</span>`;
   }
   function altaStatusCell(c) {
@@ -403,11 +404,12 @@
     if (!target) return;
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Elige una fecha válida.');
     const column = `${target.kind}_due_date`;
-    const { error } = await db.from('gym_contacts').update({ [column]: date || null }).eq('id', target.id).eq('owner_id', state.user.id);
+    const doneColumn = `${target.kind}_done`;
+    const { error } = await db.from('gym_contacts').update({ [column]: date || null, [doneColumn]: false }).eq('id', target.id).eq('owner_id', state.user.id);
     if (error) throw error;
     $('followup-date-dialog').close();
     state.followupDateEdit = null;
-    notice(date ? 'Fecha de seguimiento actualizada.' : 'Se ha restablecido la fecha automática.');
+    notice(date ? 'Nueva fecha guardada; el seguimiento vuelve a estar pendiente.' : 'Fecha automática restablecida; el seguimiento vuelve a estar pendiente.');
     await loadContacts();
   }
 
