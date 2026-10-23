@@ -132,9 +132,14 @@
     $('stat-sales').textContent = sales.length;
     $('stat-cancellations').textContent = cancellations === null ? '—' : cancellations;
     $('stat-balance').textContent = cancellations === null ? '—' : sales.length - cancellations;
-    $('ratio-contact-sales').textContent = fmtPercent(sales.length, contactsInPeriod.length);
-    $('ratio-contact-visits').textContent = fmtPercent(visits.length, contactsInPeriod.length);
-    $('ratio-visit-sales').textContent = fmtPercent(sales.length, visits.length);
+    [
+      ['ratio-contact-sales', sales.length, contactsInPeriod.length],
+      ['ratio-contact-visits', visits.length, contactsInPeriod.length],
+      ['ratio-visit-sales', sales.length, visits.length]
+    ].forEach(([id, numerator, denominator]) => {
+      $(`${id}`).textContent = fmtPercent(numerator, denominator);
+      $(`${id}-bar`).style.width = `${denominator ? Math.min(100, (numerator / denominator) * 100) : 0}%`;
+    });
 
     const isYear = state.periodMode === 'year';
     $('daily-title').textContent = isYear ? 'Contactos por mes' : 'Contactos por día';
