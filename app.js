@@ -4,7 +4,6 @@
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
   const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null };
-  const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monthKey = (date) => (date || '').slice(0, 7);
@@ -112,7 +111,7 @@
     state.view = view;
     document.querySelectorAll('.view-section').forEach((section) => section.classList.toggle('hidden', section.id !== `${view}-section`));
     document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${view}`));
-    $('page-title').textContent = ({ overview: 'Resumen', contacts: 'Contactos', cancellations: 'Bajas', followups: 'Seguimientos' })[view];
+    $('page-title').textContent = ({ overview: 'Resumen', contacts: 'Contactos', cancellations: 'Altas y bajas', followups: 'Seguimientos' })[view];
   }
 
   function render() {
@@ -224,7 +223,13 @@
     };
     renderTodayFollowups('hot', 'today-hot-followups');
     renderTodayFollowups('warm', 'today-warm-followups');
-    $('followup-rows').innerHTML = tasks.length ? tasks.map((t) => `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td>${fmtDate(t.date)}</td><td><span class="pill ${t.kind.toLowerCase()}">${t.kind}</span></td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`).join('') : emptyRow(5, 'No hay seguimientos pendientes.');
+    const renderFollowupTable = (kind, target) => {
+      const list = tasks.filter((task) => task.kind.toLowerCase() === kind).sort((a, b) => a.date.localeCompare(b.date));
+      $(target).innerHTML = list.length ? list.map((t) => `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td>${fmtDate(t.date)}</td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`).join('') : emptyRow(4, `No hay ${kind === 'hot' ? 'Hot' : 'Warm'} pendientes.`);
+    };
+    renderFollowupTable('hot', 'hot-followup-rows');
+    renderFollowupTable('warm', 'warm-followup-rows');
+    renderMonthlyComparison();
   }
 
   function followupStatusCell(c, kind) {
@@ -272,6 +277,30 @@
       : 'Última modificación: todavía no hay cambios guardados';
     $('decrease-cancellations').disabled = count === 0;
     $('increase-cancellations').disabled = false;
+  }
+
+  function renderMonthlyComparison() {
+    const monthlySales = new Map();
+    const monthlyLosses = new Map();
+    state.contacts.forEach((contact) => {
+      if (!contact.is_alta || !contact.alta_date) return;
+      const month = contact.alta_date.slice(0, 7);
+      monthlySales.set(month, (monthlySales.get(month) || 0) + 1);
+    });
+    state.monthlyCancellations.forEach((record) => {
+      if (!record.month_start) return;
+      const month = record.month_start.slice(0, 7);
+      monthlyLosses.set(month, (monthlyLosses.get(month) || 0) + Number(record.cancellation_count || 0));
+    });
+    const months = [...new Set([...monthlySales.keys(), ...monthlyLosses.keys()])].sort((a, b) => b.localeCompare(a));
+    const totalSales = [...monthlySales.values()].reduce((sum, count) => sum + count, 0);
+    const totalLosses = [...monthlyLosses.values()].reduce((sum, count) => sum + count, 0);
+    $('monthly-comparison-rows').innerHTML = months.length ? months.map((month) => {
+      const sales = monthlySales.get(month) || 0;
+      const losses = monthlyLosses.get(month) || 0;
+      return `<tr><td>${cancellationMonthLabel(`${month}-01`)}</td><td>${sales}</td><td>${losses}</td><td>${fmtPercent(sales, losses)}</td></tr>`;
+    }).join('') : emptyRow(4, 'Todavía no hay altas ni bajas registradas.');
+    $('monthly-comparison-total').innerHTML = months.length ? `<tr class="monthly-total-row"><th>Total</th><td>${totalSales}</td><td>${totalLosses}</td><td>${fmtPercent(totalSales, totalLosses)}</td></tr>` : '';
   }
 
   async function adjustMonthlyCancellations(delta, monthOverride = null) {
@@ -476,137 +505,7 @@
     }
   }
 
-  const trueValue = (value) => ['ok', 'si', 'sí', 'yes', 'true', '1', 'x'].includes(String(value ?? '').trim().toLocaleLowerCase('es'));
-  function excelDate(value) {
-    if (value instanceof Date && !Number.isNaN(value.getTime())) return isoDay(new Date(value.getFullYear(), value.getMonth(), value.getDate()));
-    if (typeof value === 'number' && value > 20000 && value < 80000) {
-      const date = new Date(Date.UTC(1899, 11, 30) + value * 86400000);
-      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
-    }
-    if (typeof value === 'string' && value.trim()) {
-      const dmy = value.trim().match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
-      if (dmy) return `${dmy[3]}-${String(dmy[2]).padStart(2, '0')}-${String(dmy[1]).padStart(2, '0')}`;
-      const date = new Date(value);
-      if (!Number.isNaN(date.getTime())) return isoDay(date);
-    }
-    return null;
-  }
-  function normalizeType(value) {
-    const normalized = String(value ?? '').trim().toLocaleLowerCase('es').replaceAll(' ', '').replaceAll('.', '');
-    if (['web/mail', 'web/email', 'email', 'web'].includes(normalized)) return 'Web/Email';
-    if (['visita', 'visitafisica'].includes(normalized)) return 'Visita física';
-    if (['telf', 'telefono', 'teléfono'].includes(normalized)) return 'Teléfono';
-    if (['whatsapp', 'whats'].includes(normalized)) return 'WhatsApp';
-    if (['visitasincomercial'].includes(normalized)) return 'Visita sin comercial';
-    if (['invitacion', 'invitación'].includes(normalized)) return 'Invitación';
-    return contactTypes.includes(value) ? value : null;
-  }
-  function normalizeMember(value) {
-    const member = String(value ?? '').trim().replace(/^\*+|\*+$/g, '').trim();
-    return member || null;
-  }
-  function importRows(workbook) {
-    const imported = [];
-    const skipped = [];
-    for (const sheetName of workbook.SheetNames) {
-      if (/plantilla|listas/i.test(sheetName)) continue;
-      const matrix = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, defval: null });
-      for (let i = 4; i < matrix.length; i++) {
-        const row = matrix[i] || [];
-        const rawMember = row[1] || row[0]; // La columna "Otros" se usó para repetir un número de socio.
-        const type = normalizeType(row[2]);
-        const contactDate = excelDate(row[3]);
-        const visitDate = excelDate(row[4]);
-        const rawHotDone = trueValue(row[6]);
-        const rawWarmDone = trueValue(row[8]);
-        const isAlta = trueValue(row[9]);
-        const altaDate = excelDate(row[10]);
-        if (!rawMember && !row[2] && !row[3] && !row[4] && !row[9]) continue;
-        const sourceKey = `${sheetName}:${i + 1}`;
-        const warnings = [];
-        if (!contactDate) { skipped.push(`${sheetName}, fila ${i + 1}: falta la fecha del contacto.`); continue; }
-        if (!type) warnings.push(`Tipo de contacto sin reconocer: ${String(row[2] ?? 'vacío')}`);
-        if ((rawHotDone || rawWarmDone) && !visitDate) warnings.push('Seguimiento marcado sin fecha de visita; queda pendiente de revisión.');
-        if (isAlta && !altaDate) warnings.push('Alta marcada sin fecha; queda fuera del total mensual de altas hasta completar la fecha.');
-        if (altaDate && altaDate < contactDate) warnings.push('La fecha de alta es anterior al contacto; posible error de registro.');
-        imported.push({
-          owner_id: state.user.id,
-          member_number: normalizeMember(rawMember),
-          contact_type: type || 'Web/Email',
-          contact_date: contactDate,
-          visit_date: visitDate,
-          hot_enabled: Boolean(visitDate),
-          warm_enabled: Boolean(visitDate),
-          hot_done: Boolean(visitDate && rawHotDone),
-          warm_done: Boolean(visitDate && rawWarmDone),
-          is_alta: isAlta,
-          alta_date: altaDate,
-          import_warnings: warnings,
-          legacy_source_key: sourceKey
-        });
-      }
-    }
-    return { imported, skipped };
-  }
-
-  function importMonthlyCancellations(workbook) {
-    const monthNumbers = { enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12 };
-    const imported = new Map();
-    for (const sheetName of workbook.SheetNames) {
-      if (/plantilla|listas/i.test(sheetName)) continue;
-      const normalizedName = sheetName.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const match = normalizedName.match(/^([a-z]+)\s+(\d{4})$/);
-      if (!match || !monthNumbers[match[1]]) continue;
-      const matrix = window.XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, raw: true, defval: null });
-      const row = matrix.find((cells) => cells.some((value) => String(value ?? '').trim().toLocaleLowerCase('es') === 'bajas del mes'));
-      if (!row) continue;
-      const labelColumn = row.findIndex((value) => String(value ?? '').trim().toLocaleLowerCase('es') === 'bajas del mes');
-      const rawCount = row[labelColumn + 1];
-      if (rawCount === null || rawCount === undefined || String(rawCount).trim() === '') continue;
-      const count = Number(rawCount);
-      if (!Number.isInteger(count) || count < 0) continue;
-      const monthStart = `${match[2]}-${String(monthNumbers[match[1]]).padStart(2, '0')}-01`;
-      imported.set(monthStart, { owner_id: state.user.id, month_start: monthStart, cancellation_count: count });
-    }
-    return [...imported.values()];
-  }
-
-  async function importWorkbook(file) {
-    if (!window.XLSX) throw new Error('No se pudo cargar el lector de Excel. Comprueba la conexión a Internet e inténtalo de nuevo.');
-    $('import-progress').textContent = 'Leyendo el libro…';
-    const buffer = await file.arrayBuffer();
-    const workbook = window.XLSX.read(buffer, { type: 'array', cellDates: true, cellFormula: false });
-    const { imported, skipped } = importRows(workbook);
-    const monthlyCancellationRows = importMonthlyCancellations(workbook);
-    if (!imported.length && !monthlyCancellationRows.length) throw new Error('No se encontraron contactos ni bajas mensuales importables.');
-    let cancellationRowsToInsert = [];
-    let cancellationMonthsAlreadyPresent = 0;
-    if (monthlyCancellationRows.length) {
-      const { data: existingMonths, error } = await db.from('gym_monthly_cancellations').select('month_start').eq('owner_id', state.user.id);
-      if (error) throw error;
-      const existing = new Set((existingMonths || []).map((row) => row.month_start));
-      cancellationRowsToInsert = monthlyCancellationRows.filter((row) => !existing.has(row.month_start));
-      cancellationMonthsAlreadyPresent = monthlyCancellationRows.length - cancellationRowsToInsert.length;
-    }
-    const batchSize = 400;
-    for (let start = 0; start < imported.length; start += batchSize) {
-      const batch = imported.slice(start, start + batchSize);
-      $('import-progress').textContent = `Guardando ${Math.min(start + batch.length, imported.length)} de ${imported.length} contactos…`;
-      const { error } = await db.from('gym_contacts').upsert(batch, { onConflict: 'owner_id,legacy_source_key' });
-      if (error) throw error;
-    }
-    if (cancellationRowsToInsert.length) {
-      const { error } = await db.from('gym_monthly_cancellations').upsert(cancellationRowsToInsert, { onConflict: 'owner_id,month_start', ignoreDuplicates: true });
-      if (error) throw error;
-    }
-    const warnings = imported.reduce((sum, row) => sum + row.import_warnings.length, 0);
-    $('import-progress').textContent = `Importación completada: ${imported.length} contactos y ${cancellationRowsToInsert.length} meses con bajas. ${cancellationMonthsAlreadyPresent} meses ya tenían datos y se conservaron.`;
-    notice(`Importación lista: ${imported.length} contactos y ${cancellationRowsToInsert.length} meses con bajas. ${warnings} avisos y ${skipped.length} filas sin fecha de contacto.`);
-    await loadContacts();
-    await loadMonthlyCancellations();
-  }
-
-  $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+$('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
   state.month = $('month-filter').value;
   updateYearOptions();
   state.rangeStart = `${state.month}-01`;
@@ -706,16 +605,6 @@
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
   $('contact-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContact(e.currentTarget); } catch (error) { notice(error.message, 'error'); } });
-  $('import-button').addEventListener('click', () => { $('import-progress').textContent = ''; $('import-dialog').showModal(); });
-  $('close-import').addEventListener('click', () => $('import-dialog').close());
-  $('cancel-import').addEventListener('click', () => $('import-dialog').close());
-  $('choose-excel').addEventListener('click', () => $('excel-file').click());
-  $('excel-file').addEventListener('change', async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try { await importWorkbook(file); } catch (error) { $('import-progress').textContent = error.message; }
-    e.target.value = '';
-  });
   $('logout-button').addEventListener('click', () => db?.auth.signOut());
 
   $('login-form').addEventListener('submit', async (e) => {
