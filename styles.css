@@ -157,9 +157,9 @@ td:first-child { font-weight: 700; color: #283c35; }
 .followup-date-cell { display: inline-flex; align-items: center; gap: 5px; }
 .followup-date-pill { border: 0; cursor: pointer; font: inherit; transition: filter .15s ease; }
 .followup-date-pill:hover, .followup-date-pill:focus-visible { filter: brightness(.96); outline: 2px solid rgba(14, 114, 90, .22); outline-offset: 1px; }
-.followup-date-edit { width: 25px; height: 25px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #81948a; cursor: pointer; }
-.followup-date-edit:hover, .followup-date-edit:focus-visible { border-color: #d8e9df; background: #eff7f1; color: var(--green-dark); outline: none; }
-.followup-date-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.alta-status-button { border: 0; cursor: pointer; font: inherit; }
+.alta-status-button:hover, .alta-status-button:focus-visible { filter: brightness(.96); outline: 2px solid rgba(14, 114, 90, .2); outline-offset: 1px; }
+.alta-status-check { margin: 5px 0 15px; }
 .pill.warning { background: #fff1df; color: #995e15; }
 .empty-cell, .empty-state { text-align: center; color: #9aa39f; font-size: 11px; padding: 20px; }
 .footer-note { margin-top: 20px; text-align: right; color: #9aa39f; font-size: 10px; }
