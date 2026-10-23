@@ -153,7 +153,6 @@ th { height: 37px; padding: 0 14px; color: #84918c; font-size: 9px; font-weight:
 .sort-header:hover, .sort-header:focus-visible { color: var(--green-dark); outline: none; }
 .contact-type-button { padding: 5px 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .contact-type-button:hover, .contact-type-button:focus-visible { color: var(--green-dark); text-decoration: underline; text-decoration-color: #a8cbb8; text-underline-offset: 3px; outline: none; }
-.contact-type-select { max-width: 180px; min-height: 32px; padding: 0 7px; border: 1px solid #9bbbab; border-radius: 7px; background: #fff; color: var(--ink); font: inherit; font-size: 11px; }
 .sort-indicator { min-width: 9px; color: var(--green); font-size: 11px; }
 .action-heading { width: 70px; text-align: center; }
 .action-cell { width: 82px; min-width: 82px; text-align: center; }
