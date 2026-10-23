@@ -90,6 +90,9 @@ button { cursor: pointer; }
 .outcome-card { min-height: 95px; display: flex; align-items: center; justify-content: space-between; padding: 17px 21px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); }
 .outcome-card > div { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 13px; }
 .outcome-card > div > span { color: #65736f; font-size: 11px; font-weight: 600; }
+.cancellation-outcome > div:first-child { flex: 1; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; }
+.balance-outcome > div:first-child { width: 100%; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; }
+.cancellation-outcome > div:first-child > strong, .balance-outcome > div:first-child > strong { justify-self: end; padding-left: 8px; }
 .outcome-card strong { color: #283c35; font: 700 27px Manrope, sans-serif; letter-spacing: -.04em; }
 .outcome-card small { grid-column: 1 / -1; margin-top: 2px; color: #9aa39f; font-size: 10px; }
 .cancellation-outcome { background: #fffaf5; border-color: #f0e7dd; }
