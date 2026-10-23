@@ -6,8 +6,28 @@ create table if not exists public.gym_monthly_cancellations (
   month_start date not null check (extract(day from month_start) = 1),
   cancellation_count integer not null check (cancellation_count >= 0),
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   constraint gym_monthly_cancellations_owner_month_uq unique (owner_id, month_start)
 );
+
+alter table public.gym_monthly_cancellations
+  add column if not exists updated_at timestamptz not null default now();
+
+create or replace function public.set_gym_monthly_cancellations_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists gym_monthly_cancellations_updated_at on public.gym_monthly_cancellations;
+create trigger gym_monthly_cancellations_updated_at
+  before update on public.gym_monthly_cancellations
+  for each row execute function public.set_gym_monthly_cancellations_updated_at();
 
 alter table public.gym_monthly_cancellations enable row level security;
 
