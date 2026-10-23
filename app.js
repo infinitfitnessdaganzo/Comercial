@@ -218,7 +218,12 @@
       ].filter(Boolean);
     }).sort((a, b) => a.date.localeCompare(b.date));
     const dueTodayOrPast = tasks.filter((t) => t.date <= isoDay(today));
-    $('today-followups').innerHTML = dueTodayOrPast.length ? dueTodayOrPast.slice(0, 5).map((t) => `<div class="compact-item"><span class="task-dot ${t.kind.toLowerCase()}"></span><div><strong>${t.kind} · ${escapeHtml(t.c.member_number || 'Sin número')}</strong><small>${fmtDate(t.date)}</small></div><button class="mini-check" data-complete="${t.c.id}" data-field="${t.field}" aria-label="Marcar realizado">✓</button></div>`).join('') : '<p class="empty-state">No hay seguimientos vencidos o para hoy.</p>';
+    const renderTodayFollowups = (kind, target) => {
+      const list = dueTodayOrPast.filter((task) => task.kind.toLowerCase() === kind).sort((a, b) => a.date.localeCompare(b.date));
+      $(target).innerHTML = list.length ? list.map((t) => `<div class="compact-item"><span class="task-dot ${t.date < isoDay(today) ? 'overdue' : 'due-today'}"></span><div><strong>${escapeHtml(t.c.member_number || 'Sin número')}</strong><small>${fmtDate(t.date)}</small></div><button class="mini-check" data-complete="${t.c.id}" data-field="${t.field}" aria-label="Marcar ${kind === 'hot' ? 'Hot' : 'Warm'} como realizado">✓</button></div>`).join('') : `<p class="empty-state">No hay ${kind === 'hot' ? 'Hot' : 'Warm'} vencidos o para hoy.</p>`;
+    };
+    renderTodayFollowups('hot', 'today-hot-followups');
+    renderTodayFollowups('warm', 'today-warm-followups');
     $('followup-rows').innerHTML = tasks.length ? tasks.map((t) => `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td>${fmtDate(t.date)}</td><td><span class="pill ${t.kind.toLowerCase()}">${t.kind}</span></td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`).join('') : emptyRow(5, 'No hay seguimientos pendientes.');
   }
 
