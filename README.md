@@ -17,7 +17,7 @@ Aplicación privada para registrar contactos, visitas, seguimientos Hot/Warm, al
 
 Con Node.js instalado, ejecuta `node server.mjs` desde esta carpeta y abre `http://localhost:4173`.
 
-El apartado **Altas y bajas** permite actualizar el contador de bajas por mes y muestra el histórico mensual de altas, bajas y ratio altas/bajas, además de sus totales.
+El apartado **Altas y bajas** permite actualizar el contador mensual y muestra el histórico de altas, bajas y balance (altas menos bajas), además de sus totales.
 
 Las altas se agrupan por `alta_date`; los contactos y visitas, por `contact_date`; las bajas, por mes registrado. En periodos personalizados se suman las bajas de los meses que se solapan con el intervalo. El balance muestra altas menos bajas. Los ratios de contactos y visitas se calculan con las altas del periodo frente al volumen de contactos o visitas correspondiente.
 
