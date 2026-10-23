@@ -170,7 +170,7 @@
     }).join('');
 
     const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date)).slice(0, 8);
-    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${statusBadge(c)}</td></tr>`).join('') : emptyRow(5, 'No hay contactos en este periodo.');
+    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)}</td></tr>`).join('') : emptyRow(7, 'No hay contactos en este periodo.');
 
     const q = state.search.toLocaleLowerCase('es');
     const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
@@ -205,10 +205,17 @@
     $('followup-rows').innerHTML = tasks.length ? tasks.map((t) => `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td>${fmtDate(t.date)}</td><td><span class="pill ${t.kind.toLowerCase()}">${t.kind}</span></td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`).join('') : emptyRow(5, 'No hay seguimientos pendientes.');
   }
 
-  function statusBadge(c) {
-    if (c.is_alta) return '<span class="pill success">Alta</span>';
-    if (c.visit_date) return '<span class="pill warm">Visita</span>';
-    return '<span class="pill neutral">Contacto</span>';
+  function followupStatusCell(c, kind) {
+    if (c.is_alta) return '<span class="pill neutral">—</span>';
+    const done = kind === 'hot' ? c.hot_done : c.warm_done;
+    if (done) return '<span class="pill success">Hecho</span>';
+    const due = dueFor(c, kind);
+    return `<span class="pill ${due ? kind : 'neutral'}">${due ? fmtDate(due) : '—'}</span>`;
+  }
+  function altaStatusCell(c) {
+    return c.is_alta
+      ? `<span class="pill success">Alta · ${fmtDate(c.alta_date)}</span>`
+      : '<span class="pill neutral">Sin alta</span>';
   }
   function cancellationMonthLabel(monthStart) {
     const [year, month] = monthStart.slice(0, 7).split('-').map(Number);
@@ -257,10 +264,8 @@
   }
 
   function contactRow(c) {
-    const hot = c.is_alta ? '—' : (c.hot_done ? '<span class="pill success">Hecho</span>' : `<span class="pill ${dueFor(c, 'hot') ? 'hot' : 'neutral'}">${dueFor(c, 'hot') ? fmtDate(dueFor(c, 'hot')) : '—'}</span>`);
-    const warm = c.is_alta ? '—' : (c.warm_done ? '<span class="pill success">Hecho</span>' : `<span class="pill ${dueFor(c, 'warm') ? 'warm' : 'neutral'}">${dueFor(c, 'warm') ? fmtDate(dueFor(c, 'warm')) : '—'}</span>`);
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
-    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${hot}</td><td>${warm}</td><td>${c.is_alta ? `<span class="pill success">Alta · ${fmtDate(c.alta_date)}</span>` : '<span class="pill neutral">Sin alta</span>'} ${review}</td><td class="action-cell"><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
+    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
