@@ -77,6 +77,11 @@ button { cursor: pointer; }
 .outcome-card strong { color: #283c35; font: 700 27px Manrope, sans-serif; letter-spacing: -.04em; }
 .outcome-card small { grid-column: 1 / -1; margin-top: 2px; color: #9aa39f; font-size: 10px; }
 .cancellation-outcome { background: #fffaf5; border-color: #f0e7dd; }
+.summary-cancellation-updated { margin-top: 4px; color: #9a8c7d; }
+.summary-cancellation-controls { display: flex; flex-direction: column; gap: 7px; margin-left: 12px; }
+.summary-counter-button { width: 35px; height: 35px; border-color: #eadfd3; background: #fff; color: #996b40; font-size: 23px; }
+.summary-counter-button:hover:not(:disabled) { background: #fff1e2; }
+.summary-counter-button:disabled { cursor: not-allowed; opacity: .45; }
 .balance-outcome { background: #fff; }
 .balance-outcome.balance-positive { background: #f0f7f2; border-color: #dcebe0; }
 .balance-outcome.balance-negative { background: #fff5f3; border-color: #f0dedb; }
