@@ -9,8 +9,9 @@ Aplicación privada para registrar contactos, visitas, seguimientos Hot/Warm, al
 3. Ejecuta también `supabase/migrations/002_monthly_cancellations.sql` para activar el contador agregado de bajas y la fecha de última modificación.
 4. Ejecuta `supabase/migrations/003_seed_monthly_cancellations.sql` para cargar los totales históricos comunicados (noviembre de 2025 a octubre de 2026). El script actualiza esos meses si ya existían.
 5. Ejecuta `supabase/migrations/004_contact_followup_options.sql` para permitir activar Hot y Warm por contacto, también cuando no hubo visita.
-6. Copia la Project URL y la clave publicable (anon) del proyecto a `supabase-config.js`.
-7. La tabla guarda solo un total por mes; no almacena socios ni fechas individuales de baja. No cargues una clave `service_role` en la aplicación.
+6. Ejecuta `supabase/migrations/005_custom_followup_dates.sql` para guardar fechas personalizadas de Hot y Warm.
+7. Copia la Project URL y la clave publicable (anon) del proyecto a `supabase-config.js`.
+8. La tabla guarda solo un total por mes; no almacena socios ni fechas individuales de baja. No cargues una clave `service_role` en la aplicación.
 
 ## Abrir localmente
 
