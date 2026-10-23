@@ -77,9 +77,12 @@ button { cursor: pointer; }
 .outcome-card strong { color: #283c35; font: 700 27px Manrope, sans-serif; letter-spacing: -.04em; }
 .outcome-card small { grid-column: 1 / -1; margin-top: 2px; color: #9aa39f; font-size: 10px; }
 .cancellation-outcome { background: #fffaf5; border-color: #f0e7dd; }
-.balance-outcome { background: #edf6f1; border-color: #dcebe0; }
-.balance-outcome strong { color: var(--green-dark); }
-.outcome-mark { width: 38px; height: 38px; display: grid; place-items: center; flex: none; border-radius: 11px; background: rgba(255,255,255,.75); color: #8b9c94; font: 400 23px Manrope, sans-serif; }
+.balance-outcome { background: #fff; }
+.balance-outcome.balance-positive { background: #f0f7f2; border-color: #dcebe0; }
+.balance-outcome.balance-negative { background: #fff5f3; border-color: #f0dedb; }
+.balance-outcome.balance-positive strong { color: #26734f; }
+.balance-outcome.balance-negative strong { color: #b5473a; }
+.balance-outcome.balance-neutral strong { color: #7e8a85; }
 .stat-card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; box-shadow: var(--shadow); }
 .stat-card { min-height: 136px; padding: 18px 17px; display: flex; flex-direction: column; align-items: flex-start; }
 .stat-card > span { color: #65736f; font-size: 11px; font-weight: 600; }
@@ -95,6 +98,8 @@ button { cursor: pointer; }
 .ratio-list { margin-top: 17px; }
 .ratio-row { min-height: 49px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border-bottom: 1px solid #f0f2ef; color: #61716b; font-size: 12px; }
 .ratio-row:last-child { border: 0; }
+.priority-ratio { margin: 0 -9px; padding: 0 9px; border-radius: 8px; background: #f1f7f3; color: #364e43; font-weight: 700; }
+.priority-ratio strong { font-size: 17px; }
 .ratio-result { min-width: 110px; display: flex; align-items: center; gap: 10px; }
 .ratio-row strong { min-width: 38px; text-align: right; font: 700 15px Manrope, sans-serif; color: var(--green-dark); }
 .ratio-track { height: 6px; width: 58px; display: block; overflow: hidden; border-radius: 99px; background: #edf1ee; }
@@ -172,6 +177,7 @@ td:first-child { font-weight: 700; color: #283c35; }
 .notice.error { background: #fff0ed; color: #9b4435; }
 
 .modal { width: min(580px, calc(100% - 24px)); padding: 23px; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 80px rgba(18, 40, 32, .2); color: var(--ink); }
+.contact-modal { width: min(680px, calc(100% - 24px)); }
 .modal::backdrop { background: rgba(16, 35, 29, .34); backdrop-filter: blur(2px); }
 .modal-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 17px; }
 .modal-heading .eyebrow { margin-bottom: 5px; }
@@ -179,6 +185,16 @@ td:first-child { font-weight: 700; color: #283c35; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-grid > label:not(.checkline) { display: grid; gap: 6px; font-size: 10px; font-weight: 600; color: #687671; }
 .form-grid input, .form-grid select { width: 100%; height: 38px; font-size: 12px; }
+.form-field { display: grid; gap: 6px; color: #687671; font-size: 10px; font-weight: 600; }
+.form-field-wide { grid-column: 1 / -1; }
+.contact-type-fieldset { grid-column: 1 / -1; min-width: 0; margin: 3px 0 0; padding: 0; border: 0; }
+.contact-type-fieldset legend { margin-bottom: 8px; color: #687671; font-size: 10px; font-weight: 600; }
+.contact-type-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.form-grid .contact-type-options .contact-type-option { display: inline-flex; gap: 0; min-width: 0; margin: 0; cursor: pointer; }
+.contact-type-option input { position: absolute; width: 1px !important; height: 1px !important; overflow: hidden; opacity: 0; }
+.contact-type-option span { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #566760; font-size: 11px; font-weight: 500; transition: .15s ease; }
+.contact-type-option input:checked + span { border-color: #72aa98; background: #edf6f1; color: var(--green-dark); box-shadow: 0 0 0 2px rgba(14, 114, 90, .08); font-weight: 700; }
+.contact-type-option input:focus-visible + span { outline: 2px solid var(--green); outline-offset: 2px; }
 .optional { font-weight: 400; color: #a0aaa5; }
 .form-divider { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 4px 0; }
 .checkline { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #5a6b64; }
