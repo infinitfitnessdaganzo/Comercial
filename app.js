@@ -4,7 +4,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false };
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monthKey = (date) => (date || '').slice(0, 7);
@@ -20,6 +20,54 @@
     box.className = `notice ${kind}`;
     box.classList.remove('hidden');
     window.setTimeout(() => box.classList.add('hidden'), 7000);
+  }
+  function updateHistoryButtons() {
+    $('undo-button').disabled = state.historyBusy || !state.history.length;
+    $('redo-button').disabled = state.historyBusy || !state.redoHistory.length;
+  }
+  function recordHistory(label, undo, redo) {
+    state.history.push({ label, undo, redo });
+    if (state.history.length > 50) state.history.shift();
+    state.redoHistory = [];
+    updateHistoryButtons();
+  }
+  async function writeContactFields(id, fields) {
+    const { error } = await db.from('gym_contacts').update(fields).eq('id', id).eq('owner_id', state.user.id);
+    if (error) throw error;
+  }
+  async function deleteContactRow(id) {
+    const { error } = await db.from('gym_contacts').delete().eq('id', id).eq('owner_id', state.user.id);
+    if (error) throw error;
+  }
+  async function insertContactRow(row) {
+    const { error } = await db.from('gym_contacts').insert(row);
+    if (error) throw error;
+  }
+  async function writeMonthlyCount(month, count) {
+    const { error } = await db.from('gym_monthly_cancellations').upsert({ owner_id: state.user.id, month_start: `${month}-01`, cancellation_count: count }, { onConflict: 'owner_id,month_start' });
+    if (error) throw error;
+  }
+  async function runHistory(direction) {
+    const source = direction === 'undo' ? state.history : state.redoHistory;
+    const target = direction === 'undo' ? state.redoHistory : state.history;
+    if (state.historyBusy) return;
+    const action = source.pop();
+    if (!action) return;
+    state.historyBusy = true;
+    updateHistoryButtons();
+    try {
+      await action[direction]();
+      await loadContacts();
+      await loadMonthlyCancellations();
+      target.push(action);
+      notice(`${direction === 'undo' ? 'Deshecho' : 'Rehecho'}: ${action.label}.`);
+    } catch (error) {
+      source.push(action);
+      notice(`No se pudo ${direction === 'undo' ? 'deshacer' : 'rehacer'} el cambio: ${error.message}`, 'error');
+    } finally {
+      state.historyBusy = false;
+      updateHistoryButtons();
+    }
   }
   function fmtDate(value) {
     if (!value) return '—';
@@ -348,15 +396,8 @@
     const count = Math.max(0, current + delta);
     $('decrease-cancellations').disabled = true;
     $('increase-cancellations').disabled = true;
-    const { error } = await db.from('gym_monthly_cancellations').upsert({
-      owner_id: state.user.id,
-      month_start: `${month}-01`,
-      cancellation_count: count
-    }, { onConflict: 'owner_id,month_start' });
-    if (error) {
-      renderCancellations();
-      throw error;
-    }
+    await writeMonthlyCount(month, count);
+    recordHistory(`Cambiar bajas de ${month}`, () => writeMonthlyCount(month, current), () => writeMonthlyCount(month, count));
     await loadMonthlyCancellations();
   }
 
@@ -375,19 +416,29 @@
   async function saveContactType() {
     const id = state.editingContactTypeId;
     const value = $('contact-type-select').value;
-    if (!id || !CONTACT_TYPES.includes(value)) return;
-    const button = $('save-contact-type');
-    button.disabled = true;
-    const { error } = await db.from('gym_contacts').update({ contact_type: value }).eq('id', id).eq('owner_id', state.user.id);
-    button.disabled = false;
-    if (error) {
-      notice(`No se pudo cambiar el tipo de contacto: ${error.message}`, 'error');
+    const visitDate = $('contact-type-visit-date').value || null;
+    const current = state.contacts.find((item) => item.id === id);
+    if (!id || !current || !CONTACT_TYPES.includes(value)) return;
+    if (value === 'Visita física' && !visitDate) {
+      notice('Indica la fecha de la visita.', 'error');
+      $('contact-type-visit-date').focus();
       return;
     }
-    $('contact-type-dialog').close();
-    state.editingContactTypeId = null;
-    notice('Tipo de contacto actualizado.');
-    await loadContacts();
+    const button = $('save-contact-type');
+    button.disabled = true;
+    const before = { contact_type: current.contact_type, visit_date: current.visit_date, hot_enabled: current.hot_enabled, warm_enabled: current.warm_enabled };
+    const after = { contact_type: value };
+    if (value === 'Visita física') Object.assign(after, { visit_date: visitDate, hot_enabled: true, warm_enabled: true });
+    try {
+      await writeContactFields(id, after);
+      recordHistory('Cambiar tipo de contacto', () => writeContactFields(id, before), () => writeContactFields(id, after));
+      $('contact-type-dialog').close();
+      state.editingContactTypeId = null;
+      notice(value === 'Visita física' ? 'Visita guardada con su fecha.' : 'Tipo de contacto actualizado.');
+      await loadContacts();
+    } finally {
+      button.disabled = false;
+    }
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
@@ -426,23 +477,29 @@
     if (recentDuplicates?.length) {
       throw new Error(`El socio ${payload.member_number} ya tiene un contacto en los últimos 30 días (${fmtDate(recentDuplicates[0].contact_date)}). No se ha guardado.`);
     }
-    const query = state.editingContactId
-      ? db.from('gym_contacts').update({
-          member_number: payload.member_number,
-          contact_type: payload.contact_type,
-          contact_date: payload.contact_date,
-          visit_date: payload.visit_date,
-          hot_enabled: payload.hot_enabled,
-          warm_enabled: payload.warm_enabled,
-          is_alta: payload.is_alta,
-          alta_date: payload.alta_date
-        }).eq('id', state.editingContactId).eq('owner_id', state.user.id)
-      : db.from('gym_contacts').insert(payload);
-    const { error } = await query;
-    if (error) throw error;
+    const wasEditing = Boolean(state.editingContactId);
+    if (wasEditing) {
+      const id = state.editingContactId;
+      const current = state.contacts.find((item) => item.id === id);
+      const before = {
+        member_number: current.member_number, contact_type: current.contact_type, contact_date: current.contact_date,
+        visit_date: current.visit_date, hot_enabled: current.hot_enabled, warm_enabled: current.warm_enabled,
+        is_alta: current.is_alta, alta_date: current.alta_date
+      };
+      const after = {
+        member_number: payload.member_number, contact_type: payload.contact_type, contact_date: payload.contact_date,
+        visit_date: payload.visit_date, hot_enabled: payload.hot_enabled, warm_enabled: payload.warm_enabled,
+        is_alta: payload.is_alta, alta_date: payload.alta_date
+      };
+      await writeContactFields(id, after);
+      recordHistory('Modificar contacto', () => writeContactFields(id, before), () => writeContactFields(id, after));
+    } else {
+      const { data: created, error } = await db.from('gym_contacts').insert(payload).select('*').single();
+      if (error) throw error;
+      recordHistory('Añadir contacto', () => deleteContactRow(created.id), () => insertContactRow(created));
+    }
     form.reset();
     $('alta-date-field').classList.add('hidden');
-    const wasEditing = Boolean(state.editingContactId);
     state.editingContactId = null;
     $('contact-dialog').close();
     notice(wasEditing ? 'Contacto modificado.' : 'Contacto guardado.');
@@ -502,8 +559,11 @@
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Elige una fecha válida.');
     const column = `${target.kind}_due_date`;
     const doneColumn = `${target.kind}_done`;
-    const { error } = await db.from('gym_contacts').update({ [column]: date || null, [doneColumn]: false }).eq('id', target.id).eq('owner_id', state.user.id);
-    if (error) throw error;
+    const contact = state.contacts.find((item) => item.id === target.id);
+    const before = { [column]: contact?.[column] || null, [doneColumn]: Boolean(contact?.[doneColumn]) };
+    const after = { [column]: date || null, [doneColumn]: false };
+    await writeContactFields(target.id, after);
+    recordHistory(`Cambiar fecha ${target.kind === 'hot' ? 'Hot' : 'Warm'}`, () => writeContactFields(target.id, before), () => writeContactFields(target.id, after));
     $('followup-date-dialog').close();
     state.followupDateEdit = null;
     notice(date ? 'Nueva fecha guardada; el seguimiento vuelve a estar pendiente.' : 'Fecha automática restablecida; el seguimiento vuelve a estar pendiente.');
@@ -527,8 +587,12 @@
     const isAlta = $('alta-status-checkbox').checked;
     const altaDate = $('alta-status-date').value || null;
     if (isAlta && !altaDate) throw new Error('Indica la fecha del alta.');
-    const { error } = await db.from('gym_contacts').update({ is_alta: isAlta, alta_date: isAlta ? altaDate : null }).eq('id', state.editingAltaId).eq('owner_id', state.user.id);
-    if (error) throw error;
+    const id = state.editingAltaId;
+    const current = state.contacts.find((item) => item.id === id);
+    const before = { is_alta: Boolean(current?.is_alta), alta_date: current?.alta_date || null };
+    const after = { is_alta: isAlta, alta_date: isAlta ? altaDate : null };
+    await writeContactFields(id, after);
+    recordHistory('Cambiar estado de alta', () => writeContactFields(id, before), () => writeContactFields(id, after));
     $('alta-status-dialog').close();
     state.editingAltaId = null;
     notice(isAlta ? 'Alta actualizada.' : 'Estado actualizado: sin alta.');
@@ -536,9 +600,16 @@
   }
 
   async function completeFollowup(id, field) {
-    const { error } = await db.from('gym_contacts').update({ [field]: true }).eq('id', id);
-    if (error) return notice(`No se pudo actualizar el seguimiento: ${error.message}`, 'error');
-    await loadContacts();
+    const contact = state.contacts.find((item) => item.id === id);
+    const before = Boolean(contact?.[field]);
+    const after = !before;
+    try {
+      await writeContactFields(id, { [field]: after });
+      recordHistory(after ? 'Marcar seguimiento como hecho' : 'Reabrir seguimiento', () => writeContactFields(id, { [field]: before }), () => writeContactFields(id, { [field]: after }));
+      await loadContacts();
+    } catch (error) {
+      notice(`No se pudo actualizar el seguimiento: ${error.message}`, 'error');
+    }
   }
 
   function requestDeleteContact(id) {
@@ -555,8 +626,10 @@
     const button = $('confirm-delete');
     button.disabled = true;
     try {
-      const { error } = await db.from('gym_contacts').delete().eq('id', state.pendingDelete).eq('owner_id', state.user.id);
-      if (error) throw error;
+      const deletedId = state.pendingDelete;
+      const deletedRow = state.contacts.find((item) => item.id === deletedId);
+      await deleteContactRow(deletedId);
+      recordHistory('Eliminar contacto', () => insertContactRow(deletedRow), () => deleteContactRow(deletedId));
       $('delete-confirm').close();
       state.pendingDelete = null;
       notice('Contacto eliminado.');
@@ -630,9 +703,11 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   }));
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
+  ['contact-rows', 'recent-rows'].forEach((id) => $(id).addEventListener('click', (e) => {
+    const button = e.target.closest('[data-edit-contact-type]');
+    if (button) openContactTypeDialog(button.dataset.editContactType);
+  }));
   document.body.addEventListener('click', (e) => {
-    const editType = e.target.closest('[data-edit-contact-type]');
-    if (editType) openContactTypeDialog(editType.dataset.editContactType);
     const editFollowupDate = e.target.closest('[data-edit-followup-date]');
     if (editFollowupDate) openFollowupDateDialog(editFollowupDate.dataset.editFollowupDate, editFollowupDate.dataset.followupKind);
     const editAlta = e.target.closest('[data-edit-alta]');
@@ -655,6 +730,11 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   $('cancel-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
   $('close-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
   $('cancel-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
+  $('contact-type-select').addEventListener('change', (e) => {
+    const needsVisitDate = e.target.value === 'Visita física';
+    $('contact-type-visit-date-field').classList.toggle('hidden', !needsVisitDate);
+    $('contact-type-visit-date').required = needsVisitDate;
+  });
   $('contact-type-dialog').addEventListener('close', () => { state.editingContactTypeId = null; });
   $('contact-type-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContactType(); } catch (error) { notice(`No se pudo cambiar el tipo de contacto: ${error.message}`, 'error'); } });
   $('reset-followup-date').addEventListener('click', async () => { try { await saveFollowupDate(''); } catch (error) { notice(error.message, 'error'); } });
@@ -674,6 +754,8 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
   $('contact-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContact(e.currentTarget); } catch (error) { notice(error.message, 'error'); } });
+  $('undo-button').addEventListener('click', () => runHistory('undo'));
+  $('redo-button').addEventListener('click', () => runHistory('redo'));
   $('logout-button').addEventListener('click', () => db?.auth.signOut());
 
   $('login-form').addEventListener('submit', async (e) => {
