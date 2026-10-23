@@ -345,3 +345,5 @@ td:first-child { font-weight: 700; color: #283c35; }
   .membership-detail-stats article { padding: 12px; }
   .membership-detail-stats article > strong { font-size: 27px; }
 }
+
+.member-number-cell { font-weight: 700; font-size: 14px; letter-spacing: .01em; color: #263d33; }
