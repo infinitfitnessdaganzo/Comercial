@@ -58,8 +58,10 @@ button { cursor: pointer; }
 .button.secondary { background: #fff; border-color: var(--line); color: #3b514a; }
 .button.secondary:hover { background: #f7f9f7; }
 .button.small { height: 32px; font-size: 11px; padding: 0 11px; }
+.customize-button { width: 42px; min-width: 42px; padding: 0; display: inline-grid; place-items: center; }
+.customize-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
-.overview-widgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 15px; }
+.overview-widgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 15px; }
 .overview-widget { min-width: 0; margin: 0; position: relative; }
 .overview-widget-wide { grid-column: 1 / -1; }
 .overview-customize-hint { margin: -14px 0 17px; color: #748078; font-size: 12px; }
