@@ -112,10 +112,15 @@ button { cursor: pointer; }
 .help-text { font-size: 10px; color: #9aa39f; line-height: 1.5; margin: 10px 0 0; }
 .text-button { border: 0; background: none; color: var(--green); font-size: 11px; font-weight: 700; }
 .compact-list { display: grid; gap: 3px; }
+.today-followups-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.today-followup-column { min-width: 0; }
+.today-followup-column + .today-followup-column { padding-left: 18px; border-left: 1px solid #edf0ed; }
+.today-followup-column h3 { margin: 0 0 8px; color: #61716b; font-size: 11px; font-weight: 700; }
 .compact-item { min-height: 42px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #f1f3f0; }
 .compact-item:last-child { border: 0; }
 .task-dot { width: 8px; height: 8px; border-radius: 50%; background: #edaa4e; flex: none; }
-.task-dot.warm { background: #8ab09a; }
+.task-dot.overdue { background: #c94d43; }
+.task-dot.due-today { background: #edaa4e; }
 .compact-item strong, .compact-item small { display: block; }
 .compact-item strong { font-size: 11px; font-weight: 600; }
 .compact-item small { font-size: 10px; color: #929e99; margin-top: 3px; }
@@ -275,6 +280,8 @@ td:first-child { font-weight: 700; color: #283c35; }
   .panel { padding: 16px; }
   .table-panel { padding: 16px 0 0; }
   .panel-heading { padding: 0 16px !important; }
+  .today-followups-grid { grid-template-columns: 1fr; gap: 13px; }
+  .today-followup-column + .today-followup-column { padding: 12px 0 0; border-top: 1px solid #edf0ed; border-left: 0; }
   .daily-chart { gap: 3px; }
   .day-column { min-width: 14px; }
   .form-grid { grid-template-columns: 1fr; }
