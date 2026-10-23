@@ -600,9 +600,34 @@
     $('followup-date-title').textContent = `Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'}`;
     $('followup-date-member').textContent = `Socio ${contact.member_number || 'sin número'}`;
     $('followup-date-input').value = contact[`${kind}_due_date`] || dueFor(contact, kind) || '';
+    $('complete-followup-date').disabled = Boolean(contact[`${kind}_done`]);
+    $('complete-followup-date').textContent = contact[`${kind}_done`] ? 'Ya está hecho' : 'Marcar hecho';
     $('followup-date-dialog').showModal();
   }
 
+  async function finishFollowupFromDialog(action) {
+    const target = state.followupDateEdit;
+    if (!target) return;
+    const contact = state.contacts.find((item) => item.id === target.id);
+    if (!contact) return;
+    const enabledColumn = `${target.kind}_enabled`;
+    const dateColumn = `${target.kind}_due_date`;
+    const doneColumn = `${target.kind}_done`;
+    const before = {
+      [enabledColumn]: contact[enabledColumn] ?? null,
+      [dateColumn]: contact[dateColumn] || null,
+      [doneColumn]: Boolean(contact[doneColumn])
+    };
+    const after = action === 'done'
+      ? { [doneColumn]: true }
+      : { [enabledColumn]: false, [dateColumn]: null, [doneColumn]: false };
+    await writeContactFields(target.id, after);
+    recordHistory(action === 'done' ? 'Marcar seguimiento como hecho' : 'Quitar seguimiento', () => writeContactFields(target.id, before), () => writeContactFields(target.id, after));
+    $('followup-date-dialog').close();
+    state.followupDateEdit = null;
+    notice(action === 'done' ? 'Seguimiento marcado como hecho.' : 'Seguimiento quitado.');
+    await loadContacts();
+  }
   async function saveFollowupDate(date) {
     const target = state.followupDateEdit;
     if (!target) return;
@@ -788,6 +813,8 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   });
   $('contact-type-dialog').addEventListener('close', () => { state.editingContactTypeId = null; });
   $('contact-type-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContactType(); } catch (error) { notice(`No se pudo cambiar el tipo de contacto: ${error.message}`, 'error'); } });
+  $('complete-followup-date').addEventListener('click', async () => { try { await finishFollowupFromDialog('done'); } catch (error) { notice(error.message, 'error'); } });
+  $('remove-followup-date').addEventListener('click', async () => { try { await finishFollowupFromDialog('remove'); } catch (error) { notice(error.message, 'error'); } });
   $('reset-followup-date').addEventListener('click', async () => { try { await saveFollowupDate(''); } catch (error) { notice(error.message, 'error'); } });
   $('followup-date-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveFollowupDate($('followup-date-input').value); } catch (error) { notice(error.message, 'error'); } });
   $('close-alta-status').addEventListener('click', () => $('alta-status-dialog').close());
