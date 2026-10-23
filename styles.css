@@ -60,6 +60,7 @@ button { cursor: pointer; }
 .button.small { height: 32px; font-size: 11px; padding: 0 11px; }
 .customize-button { width: 42px; min-width: 42px; padding: 0; display: inline-grid; place-items: center; }
 .customize-button svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sidebar-customize { width: 31px; min-width: 31px; height: 31px; border-radius: 8px; }
 
 .overview-widgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 15px; }
 .overview-widget { min-width: 0; margin: 0; position: relative; }
