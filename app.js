@@ -225,7 +225,10 @@
     renderTodayFollowups('warm', 'today-warm-followups');
     const renderFollowupTable = (kind, target) => {
       const list = tasks.filter((task) => task.kind.toLowerCase() === kind).sort((a, b) => a.date.localeCompare(b.date));
-      $(target).innerHTML = list.length ? list.map((t) => `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td>${fmtDate(t.date)}</td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`).join('') : emptyRow(4, `No hay ${kind === 'hot' ? 'Hot' : 'Warm'} pendientes.`);
+      $(target).innerHTML = list.length ? list.map((t) => {
+        const dateStatus = t.date <= isoDay(today) ? 'attention' : 'hot';
+        return `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td><button class="pill ${dateStatus} followup-date-pill" type="button" data-edit-followup-date="${escapeHtml(t.c.id)}" data-followup-kind="${kind}" title="Haz clic para cambiar la fecha prevista">${fmtDate(t.date)}</button></td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`;
+      }).join('') : emptyRow(4, `No hay ${kind === 'hot' ? 'Hot' : 'Warm'} pendientes.`);
     };
     renderFollowupTable('hot', 'hot-followup-rows');
     renderFollowupTable('warm', 'warm-followup-rows');
