@@ -4,7 +4,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null };
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monthKey = (date) => (date || '').slice(0, 7);
@@ -364,32 +364,30 @@
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
     return `<tr><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
-  function openContactTypeSelect(button) {
-    const contact = state.contacts.find((item) => item.id === button.dataset.editContactType);
+  function openContactTypeDialog(id) {
+    const contact = state.contacts.find((item) => item.id === id);
     if (!contact || !CONTACT_TYPES.includes(contact.contact_type)) return;
-    const select = document.createElement('select');
-    select.className = 'contact-type-select';
-    select.setAttribute('aria-label', `Nuevo tipo de contacto para socio ${contact.member_number || 'sin número'}`);
-    select.dataset.saveContactType = contact.id;
-    select.innerHTML = CONTACT_TYPES.map((type) => `<option value="${escapeHtml(type)}"${type === contact.contact_type ? ' selected' : ''}>${escapeHtml(type)}</option>`).join('');
-    button.replaceWith(select);
-    select.focus();
+    state.editingContactTypeId = id;
+    $('contact-type-member').textContent = `Socio ${contact.member_number || 'sin número'}`;
+    $('contact-type-select').value = contact.contact_type;
+    $('contact-type-dialog').showModal();
   }
-  async function saveContactType(select) {
-    const id = select.dataset.saveContactType;
-    const value = select.value;
-    if (!CONTACT_TYPES.includes(value)) return;
-    select.disabled = true;
+  async function saveContactType() {
+    const id = state.editingContactTypeId;
+    const value = $('contact-type-select').value;
+    if (!id || !CONTACT_TYPES.includes(value)) return;
+    const button = $('save-contact-type');
+    button.disabled = true;
     const { error } = await db.from('gym_contacts').update({ contact_type: value }).eq('id', id).eq('owner_id', state.user.id);
+    button.disabled = false;
     if (error) {
       notice(`No se pudo cambiar el tipo de contacto: ${error.message}`, 'error');
-      await loadContacts();
       return;
     }
-    const contact = state.contacts.find((item) => item.id === id);
-    if (contact) contact.contact_type = value;
+    $('contact-type-dialog').close();
+    state.editingContactTypeId = null;
     notice('Tipo de contacto actualizado.');
-    render();
+    await loadContacts();
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
@@ -634,7 +632,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
   document.body.addEventListener('click', (e) => {
     const editType = e.target.closest('[data-edit-contact-type]');
-    if (editType) openContactTypeSelect(editType);
+    if (editType) openContactTypeDialog(editType.dataset.editContactType);
     const editFollowupDate = e.target.closest('[data-edit-followup-date]');
     if (editFollowupDate) openFollowupDateDialog(editFollowupDate.dataset.editFollowupDate, editFollowupDate.dataset.followupKind);
     const editAlta = e.target.closest('[data-edit-alta]');
@@ -646,13 +644,6 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     const deleteButton = e.target.closest('[data-delete-contact]');
     if (deleteButton) requestDeleteContact(deleteButton.dataset.deleteContact);
   });
-  document.body.addEventListener('change', (e) => {
-    const select = e.target.closest('[data-save-contact-type]');
-    if (select) saveContactType(select);
-  });
-  document.body.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && e.target.matches('[data-save-contact-type]')) render();
-  });
   $('close-delete-confirm').addEventListener('click', () => $('delete-confirm').close());
   $('cancel-delete').addEventListener('click', () => $('delete-confirm').close());
   $('delete-confirm').addEventListener('close', () => { state.pendingDelete = null; });
@@ -662,6 +653,10 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   $('cancel-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('close-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
   $('cancel-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
+  $('close-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
+  $('cancel-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
+  $('contact-type-dialog').addEventListener('close', () => { state.editingContactTypeId = null; });
+  $('contact-type-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContactType(); } catch (error) { notice(`No se pudo cambiar el tipo de contacto: ${error.message}`, 'error'); } });
   $('reset-followup-date').addEventListener('click', async () => { try { await saveFollowupDate(''); } catch (error) { notice(error.message, 'error'); } });
   $('followup-date-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveFollowupDate($('followup-date-input').value); } catch (error) { notice(error.message, 'error'); } });
   $('close-alta-status').addEventListener('click', () => $('alta-status-dialog').close());
