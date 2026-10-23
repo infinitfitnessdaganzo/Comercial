@@ -199,6 +199,15 @@ td:first-child { font-weight: 700; color: #283c35; }
 .contact-type-option span { min-height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #566760; font-size: 11px; font-weight: 500; transition: .15s ease; }
 .contact-type-option input:checked + span { border-color: #72aa98; background: #edf6f1; color: var(--green-dark); box-shadow: 0 0 0 2px rgba(14, 114, 90, .08); font-weight: 700; }
 .contact-type-option input:focus-visible + span { outline: 2px solid var(--green); outline-offset: 2px; }
+.followup-panel { grid-column: 1 / -1; min-width: 0; margin: 3px 0 0; padding: 0; border: 0; }
+.followup-panel legend { margin-bottom: 8px; color: #687671; font-size: 10px; font-weight: 600; }
+.followup-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.form-grid .followup-option { min-width: 0; min-height: 54px; display: flex; align-items: center; gap: 10px; margin: 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #566760; cursor: pointer; transition: .15s ease; }
+.form-grid .followup-option:has(input:checked) { border-color: #72aa98; background: #edf6f1; color: var(--green-dark); box-shadow: 0 0 0 2px rgba(14, 114, 90, .06); }
+.followup-option input { width: 16px !important; height: 16px !important; margin: 0; accent-color: var(--green); flex: none; }
+.followup-option > span { display: grid; gap: 3px; }
+.followup-option strong { font-size: 11px; }
+.followup-option small { color: #77847e; font-size: 9px; font-weight: 400; }
 .optional { font-weight: 400; color: #a0aaa5; }
 .form-divider { grid-column: 1 / -1; height: 1px; background: var(--line); margin: 4px 0; }
 .checkline { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #5a6b64; }
