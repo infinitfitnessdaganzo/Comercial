@@ -136,6 +136,16 @@
     $('stat-visits-no-sale').textContent = visitsNoSale.length;
     $('stat-sales').textContent = sales.length;
     $('stat-cancellations').textContent = cancellations === null ? '—' : cancellations;
+    const cancellationRecordsInPeriod = state.monthlyCancellations.filter((record) => cancellationMonthInSelectedPeriod(record.month_start));
+    const lastCancellationUpdate = cancellationRecordsInPeriod.map((record) => record.updated_at || record.created_at).filter(Boolean).sort().at(-1);
+    $('stat-cancellations-updated-at').textContent = lastCancellationUpdate
+      ? `Última modificación: ${new Intl.DateTimeFormat('es-ES', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(lastCancellationUpdate))}`
+      : 'Última modificación: todavía no hay cambios guardados';
+    const canAdjustSummaryMonth = state.cancellationsLoaded && state.periodMode === 'month' && Boolean(state.month);
+    $('summary-decrease-cancellations').disabled = !canAdjustSummaryMonth || Number(cancellations || 0) === 0;
+    $('summary-increase-cancellations').disabled = !canAdjustSummaryMonth;
+    $('summary-decrease-cancellations').title = canAdjustSummaryMonth ? 'Restar una baja del mes' : 'Selecciona “Por mes” para cambiar un contador';
+    $('summary-increase-cancellations').title = canAdjustSummaryMonth ? 'Sumar una baja al mes' : 'Selecciona “Por mes” para cambiar un contador';
     const balance = cancellations === null ? null : sales.length - cancellations;
     $('stat-balance').textContent = balance === null ? '—' : balance;
     const balanceCard = $('stat-balance').closest('.balance-outcome');
@@ -258,8 +268,8 @@
     $('increase-cancellations').disabled = false;
   }
 
-  async function adjustMonthlyCancellations(delta) {
-    const month = $('cancellation-month').value;
+  async function adjustMonthlyCancellations(delta, monthOverride = null) {
+    const month = monthOverride || $('cancellation-month').value;
     if (!month) throw new Error('Elige el mes y el año.');
     const current = Number($('cancellation-count').textContent || 0);
     const count = Math.max(0, current + delta);
@@ -625,6 +635,12 @@
   });
   $('increase-cancellations').addEventListener('click', async () => {
     try { await adjustMonthlyCancellations(1); } catch (error) { notice(`No se pudo actualizar el total: ${error.message}`, 'error'); }
+  });
+  $('summary-decrease-cancellations').addEventListener('click', async () => {
+    try { await adjustMonthlyCancellations(-1, state.month); } catch (error) { notice(`No se pudo actualizar el total: ${error.message}`, 'error'); }
+  });
+  $('summary-increase-cancellations').addEventListener('click', async () => {
+    try { await adjustMonthlyCancellations(1, state.month); } catch (error) { notice(`No se pudo actualizar el total: ${error.message}`, 'error'); }
   });
   $('search-input').addEventListener('input', (e) => { state.search = e.target.value; render(); });
   $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; render(); });
