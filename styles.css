@@ -154,6 +154,10 @@ td:first-child { font-weight: 700; color: #283c35; }
 .pill.hot { background: #fff3e5; color: #ac7127; }
 .pill.warm { background: #edf4ef; color: #527e66; }
 .pill.neutral { background: #f1f3f1; color: #7e8a85; }
+.followup-date-cell { display: inline-flex; align-items: center; gap: 5px; }
+.followup-date-edit { width: 25px; height: 25px; display: inline-grid; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #81948a; cursor: pointer; }
+.followup-date-edit:hover, .followup-date-edit:focus-visible { border-color: #d8e9df; background: #eff7f1; color: var(--green-dark); outline: none; }
+.followup-date-edit svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .pill.warning { background: #fff1df; color: #995e15; }
 .empty-cell, .empty-state { text-align: center; color: #9aa39f; font-size: 11px; padding: 20px; }
 .footer-note { margin-top: 20px; text-align: right; color: #9aa39f; font-size: 10px; }
@@ -182,6 +186,9 @@ td:first-child { font-weight: 700; color: #283c35; }
 
 .modal { width: min(580px, calc(100% - 24px)); padding: 23px; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 80px rgba(18, 40, 32, .2); color: var(--ink); }
 .contact-modal { width: min(680px, calc(100% - 24px)); }
+.followup-date-modal { width: min(410px, calc(100% - 24px)); }
+.followup-date-modal .muted { margin: 6px 0 0; font-size: 11px; }
+.followup-date-modal .modal-actions { flex-wrap: wrap; }
 .modal::backdrop { background: rgba(16, 35, 29, .34); backdrop-filter: blur(2px); }
 .modal-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 17px; }
 .modal-heading .eyebrow { margin-bottom: 5px; }
