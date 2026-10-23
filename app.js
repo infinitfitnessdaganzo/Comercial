@@ -3,7 +3,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'member_number', sortDirection: 'asc', pendingDelete: null, editingContactId: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null };
   const contactTypes = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -62,6 +62,8 @@
     return first <= end && last >= start;
   }
   function updateSortIndicators() {
+    $('sort-by').value = state.sortBy;
+    $('sort-direction').value = state.sortDirection;
     document.querySelectorAll('.sort-header').forEach((button) => {
       const active = button.dataset.sortKey === state.sortBy;
       const arrow = active ? (state.sortDirection === 'asc' ? '↑' : '↓') : '↕';
@@ -217,8 +219,13 @@
     const done = kind === 'hot' ? c.hot_done : c.warm_done;
     if (done) return '<span class="pill success">Hecho</span>';
     const due = dueFor(c, kind);
-    const editButton = due ? `<button class="followup-date-edit" type="button" data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}" aria-label="Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'} de socio ${escapeHtml(c.member_number || 'sin número')}" title="Cambiar fecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button>` : '';
-    return `<span class="followup-date-cell"><span class="pill ${due ? kind : 'neutral'}">${due ? fmtDate(due) : '—'}</span>${editButton}</span>`;
+    const isDue = due && due <= isoDay(today);
+    const statusClass = due ? (isDue ? 'attention' : 'hot') : 'neutral';
+    const editAttrs = `data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}"`;
+    const editLabel = `Cambiar fecha ${kind === 'hot' ? 'Hot' : 'Warm'} de socio ${escapeHtml(c.member_number || 'sin número')}`;
+    const dateButton = due ? `<button class="pill ${statusClass} followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="Haz clic para cambiar la fecha">${fmtDate(due)}</button>` : '<span class="pill neutral">—</span>';
+    const editButton = due ? `<button class="followup-date-edit" type="button" ${editAttrs} aria-label="${editLabel}" title="Cambiar fecha"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button>` : '';
+    return `<span class="followup-date-cell">${dateButton}${editButton}</span>`;
   }
   function altaStatusCell(c) {
     return c.is_alta
