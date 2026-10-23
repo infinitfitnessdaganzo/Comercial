@@ -131,7 +131,12 @@
     $('stat-visits-no-sale').textContent = visitsNoSale.length;
     $('stat-sales').textContent = sales.length;
     $('stat-cancellations').textContent = cancellations === null ? '—' : cancellations;
-    $('stat-balance').textContent = cancellations === null ? '—' : sales.length - cancellations;
+    const balance = cancellations === null ? null : sales.length - cancellations;
+    $('stat-balance').textContent = balance === null ? '—' : balance;
+    const balanceCard = $('stat-balance').closest('.balance-outcome');
+    balanceCard.classList.toggle('balance-positive', balance !== null && balance > 0);
+    balanceCard.classList.toggle('balance-negative', balance !== null && balance < 0);
+    balanceCard.classList.toggle('balance-neutral', balance === null || balance === 0);
     [
       ['ratio-contact-sales', sales.length, contactsInPeriod.length],
       ['ratio-contact-visits', visits.length, contactsInPeriod.length],
@@ -269,11 +274,13 @@
       contact_type: values.get('contact_type'),
       contact_date: values.get('contact_date'),
       visit_date: visitDate,
-      hot_done: Boolean(visitDate && values.get('hot_done') === 'on'),
-      warm_done: Boolean(visitDate && values.get('warm_done') === 'on'),
+      hot_done: false,
+      warm_done: false,
       is_alta: isAlta,
       alta_date: isAlta ? (values.get('alta_date') || null) : null
     };
+    if (!payload.member_number) throw new Error('Indica el número de socio.');
+    if (!payload.contact_type) throw new Error('Selecciona un tipo de contacto.');
     if (isAlta && !payload.alta_date) throw new Error('Indica la fecha del alta.');
     const { error } = await db.from('gym_contacts').insert(payload);
     if (error) throw error;
