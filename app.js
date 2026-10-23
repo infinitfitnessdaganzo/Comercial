@@ -76,7 +76,7 @@
     const all = [];
     const pageSize = 1000;
     for (let start = 0; ; start += pageSize) {
-      const { data, error } = await db.from('gym_contacts').select('*').order('contact_date', { ascending: false }).range(start, start + pageSize - 1);
+      const { data, error } = await db.from('gym_contacts').select('*').order('contact_date', { ascending: false }).order('created_at', { ascending: false }).range(start, start + pageSize - 1);
       if (error) throw error;
       all.push(...data);
       if (data.length < pageSize) break;
@@ -112,6 +112,12 @@
     document.querySelectorAll('.view-section').forEach((section) => section.classList.toggle('hidden', section.id !== `${view}-section`));
     document.querySelectorAll('.nav-link').forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${view}`));
     $('page-title').textContent = ({ overview: 'Resumen', contacts: 'Contactos', cancellations: 'Altas y bajas', followups: 'Seguimientos' })[view];
+    if (view === 'contacts') {
+      state.sortBy = 'contact_date';
+      state.sortDirection = 'desc';
+      updateSortIndicators();
+      render();
+    }
   }
 
   function render() {
@@ -203,8 +209,8 @@
       return `<div class="day-column" title="${title}: ${count} contacto${count === 1 ? '' : 's'}"><div class="bar-track"><span class="bar-fill ${count ? '' : 'zero'}" style="height:${count ? Math.max(5, (count / maxDay) * 100) : 2}%"></span></div><small>${label}</small></div>`;
     }).join('');
 
-    const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date)).slice(0, 8);
-    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)}</td></tr>`).join('') : emptyRow(7, 'No hay contactos en este periodo.');
+    const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date) || (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 8);
+    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)}</td></tr>`).join('') : emptyRow(7, 'No hay contactos en este periodo.');
 
     const q = state.search.toLocaleLowerCase('es');
     const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
@@ -221,7 +227,9 @@
       if (left === '') return 1;
       if (right === '') return -1;
       const result = collator.compare(String(left), String(right));
-      return state.sortDirection === 'asc' ? result : -result;
+      if (result !== 0) return state.sortDirection === 'asc' ? result : -result;
+      if (state.sortBy === 'contact_date') return (b.created_at || '').localeCompare(a.created_at || '');
+      return 0;
     });
     updateSortIndicators();
     $('contact-count').textContent = `${filtered.length} de ${contactsInPeriod.length} contactos`;
@@ -353,7 +361,7 @@
 
   function contactRow(c) {
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
-    return `<tr><td>${escapeHtml(c.member_number || 'Sin número')}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.contact_date)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
+    return `<tr><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td>${escapeHtml(c.contact_type)}</td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
