@@ -383,3 +383,15 @@ td:first-child { font-weight: 700; color: #283c35; }
 .bar-visits { left: 11%; width: 78%; background: #176f54; }
 .bar-sales { left: 22%; width: 56%; background: #477fbc; }
 @media (max-width: 700px) { .daily-heading-meta { gap: 8px; } .daily-legend { gap: 7px; font-size: 9px; } }
+.duplicate-contact-modal { width: min(520px, calc(100% - 24px)); }
+.duplicate-contact-modal > .muted { margin: -5px 0 14px; font-size: 12px; }
+.duplicate-contact-card { padding: 15px; border: 1px solid #e4ebe5; border-radius: 11px; background: #f7faf7; }
+.duplicate-profile-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 11px; border-bottom: 1px solid #e5ece6; }
+.duplicate-profile-top strong { color: #294238; font: 700 16px Manrope, sans-serif; }
+.duplicate-profile-top span { color: #84918a; font-size: 10px; }
+.duplicate-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; padding-top: 13px; }
+.duplicate-profile-grid > div { display: grid; gap: 3px; min-width: 0; }
+.duplicate-profile-grid small { color: #87938d; font-size: 9px; }
+.duplicate-profile-grid strong { color: #43564d; font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }
+.duplicate-contact-actions { flex-wrap: wrap; }
+@media (max-width: 520px) { .duplicate-contact-actions { justify-content: stretch; } .duplicate-contact-actions .button { flex: 1 1 100%; } .duplicate-profile-top { align-items: flex-start; flex-direction: column; gap: 4px; } }
