@@ -4,7 +4,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, customizingOverview: false, draggedWidgetId: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, pendingBackupImport: null, customizingOverview: false, draggedWidgetId: null };
   const DEFAULT_WIDGET_ORDER = ['outcomes', 'followups', 'ratios', 'recent', 'funnel', 'daily'];
   const PREVIOUS_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'recent', 'funnel', 'daily'];
   const OLDER_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'recent', 'daily'];
@@ -124,6 +124,142 @@
       button.closest('th').setAttribute('aria-sort', active ? (state.sortDirection === 'asc' ? 'ascending' : 'descending') : 'none');
       button.setAttribute('aria-label', `${button.textContent.trim().replace(/[↑↓↕]/g, '').trim()}; ${active ? (state.sortDirection === 'asc' ? 'orden ascendente' : 'orden descendente') : 'ordenar'}`);
     });
+  }
+
+  const BACKUP_FORMAT = 'infinitfitness-comercial-backup';
+  const BACKUP_VERSION = 1;
+  async function fetchAllRows(table) {
+    const result = [];
+    const pageSize = 1000;
+    for (let start = 0; ; start += pageSize) {
+      const { data, error } = await db.from(table).select('*').range(start, start + pageSize - 1);
+      if (error) throw error;
+      result.push(...(data || []));
+      if (!data || data.length < pageSize) return result;
+    }
+  }
+  function backupRows(rows, size = 200) {
+    const groups = [];
+    for (let i = 0; i < rows.length; i += size) groups.push(rows.slice(i, i + size));
+    return groups;
+  }
+  async function exportFullBackup() {
+    const [contacts, cancellations] = await Promise.all([
+      fetchAllRows('gym_contacts'),
+      fetchAllRows('gym_monthly_cancellations')
+    ]);
+    const payload = {
+      format: BACKUP_FORMAT,
+      version: BACKUP_VERSION,
+      exported_at: new Date().toISOString(),
+      data: { contacts, monthly_cancellations: cancellations },
+      settings: { dashboard_widget_order: state.user?.user_metadata?.dashboard_widget_order ?? null }
+    };
+    const text = JSON.stringify(payload, null, 2);
+    const date = isoDay(new Date());
+    const fileName = `copia-gimnasio-${date}.json`;
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        startIn: 'desktop',
+        types: [{ description: 'Copia de seguridad JSON', accept: { 'application/json': ['.json'] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(new Blob([text], { type: 'application/json' }));
+      await writable.close();
+    } else {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url; link.download = fileName; link.click();
+      URL.revokeObjectURL(url);
+    }
+    $('backup-file-summary').textContent = `Copia exportada: ${contacts.length} contactos y ${cancellations.length} meses con bajas.`;
+    notice('Copia de seguridad guardada.');
+  }
+  function prepareBackupImport(fileText, fileName) {
+    const backup = JSON.parse(fileText);
+    if (backup?.format !== BACKUP_FORMAT || backup?.version !== BACKUP_VERSION || !Array.isArray(backup?.data?.contacts) || !Array.isArray(backup?.data?.monthly_cancellations)) {
+      throw new Error('El archivo no es una copia válida de esta aplicación.');
+    }
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const contactFields = ['id','member_number','contact_type','contact_date','visit_date','hot_done','warm_done','is_alta','alta_date','import_warnings','legacy_source_key','created_at','hot_enabled','warm_enabled','hot_due_date','warm_due_date'];
+    const cancellationFields = ['id','month_start','cancellation_count','created_at','updated_at'];
+    const contacts = backup.data.contacts.map((record, index) => {
+      if (!record || typeof record !== 'object' || !uuidPattern.test(record.id || '') || !CONTACT_TYPES.includes(record.contact_type) || !isoDatePattern.test(record.contact_date || '')) throw new Error(`El contacto ${index + 1} no tiene un formato válido.`);
+      const row = Object.fromEntries(contactFields.filter((key) => Object.hasOwn(record, key)).map((key) => [key, record[key]]));
+      row.owner_id = state.user.id;
+      return row;
+    });
+    const cancellations = backup.data.monthly_cancellations.map((record, index) => {
+      if (!record || typeof record !== 'object' || !uuidPattern.test(record.id || '') || !isoDatePattern.test(record.month_start || '') || !record.month_start.endsWith('-01') || !Number.isInteger(Number(record.cancellation_count)) || Number(record.cancellation_count) < 0) throw new Error(`El mes de bajas ${index + 1} no tiene un formato válido.`);
+      const row = Object.fromEntries(cancellationFields.filter((key) => Object.hasOwn(record, key)).map((key) => [key, record[key]]));
+      row.owner_id = state.user.id;
+      return row;
+    });
+    if (new Set(contacts.map((row) => row.id)).size !== contacts.length || new Set(cancellations.map((row) => row.month_start)).size !== cancellations.length) throw new Error('La copia contiene registros repetidos.');
+    return { raw: backup, contacts, cancellations, fileName };
+  }
+  async function replaceAllContacts(rows) {
+    const { error: deleteError } = await db.from('gym_contacts').delete().eq('owner_id', state.user.id);
+    if (deleteError) throw deleteError;
+    for (const group of backupRows(rows)) {
+      const { error } = await db.from('gym_contacts').insert(group);
+      if (error) throw error;
+    }
+  }
+  async function setMonthlyBackup(rows, existingRows) {
+    const monthsInBackup = new Set(rows.map((row) => row.month_start));
+    for (const row of existingRows) {
+      if (monthsInBackup.has(row.month_start)) continue;
+      const { error } = await db.from('gym_monthly_cancellations').update({ cancellation_count: 0 }).eq('owner_id', state.user.id).eq('month_start', row.month_start);
+      if (error) throw error;
+    }
+    for (const group of backupRows(rows)) {
+      const { error } = await db.from('gym_monthly_cancellations').upsert(group, { onConflict: 'owner_id,month_start' });
+      if (error) throw error;
+    }
+  }
+  async function restoreFullBackup() {
+    const pending = state.pendingBackupImport;
+    if (!pending) return;
+    const confirmed = window.confirm(`Se reemplazarán los contactos actuales (${state.contacts.length}) por ${pending.contacts.length} contactos de “${pending.fileName}” y se restaurarán sus bajas mensuales. ¿Quieres continuar?`);
+    if (!confirmed) return;
+    $('restore-backup-button').disabled = true;
+    $('backup-file-summary').textContent = 'Restaurando la copia… No cierres esta ventana.';
+    const [oldContacts, oldCancellations] = await Promise.all([fetchAllRows('gym_contacts'), fetchAllRows('gym_monthly_cancellations')]);
+    let contactsChanged = false;
+    let cancellationsChanged = false;
+    try {
+      const { error: deleteError } = await db.from('gym_contacts').delete().eq('owner_id', state.user.id);
+      if (deleteError) throw deleteError;
+      contactsChanged = true;
+      for (const group of backupRows(pending.contacts)) {
+        const { error } = await db.from('gym_contacts').insert(group);
+        if (error) throw error;
+      }
+      cancellationsChanged = true;
+      await setMonthlyBackup(pending.cancellations, oldCancellations);
+      if (pending.raw.settings && Object.hasOwn(pending.raw.settings, 'dashboard_widget_order')) {
+        const { data, error } = await db.auth.updateUser({ data: { dashboard_widget_order: pending.raw.settings.dashboard_widget_order } });
+        if (error) throw error;
+        if (data?.user) state.user = data.user;
+      }
+      state.history = []; state.redoHistory = [];
+      state.pendingBackupImport = null;
+      $('backup-dialog').close();
+      $('backup-warning').classList.add('hidden');
+      $('restore-backup-button').disabled = true;
+      await Promise.all([loadContacts(), loadMonthlyCancellations(), applySavedWidgetOrder()]);
+      notice('Copia restaurada correctamente.');
+    } catch (error) {
+      const rollbackErrors = [];
+      if (contactsChanged) try { await replaceAllContacts(oldContacts); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
+      if (cancellationsChanged) try { await setMonthlyBackup(oldCancellations, await fetchAllRows('gym_monthly_cancellations')); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
+      $('backup-file-summary').textContent = rollbackErrors.length ? `Falló la restauración y no se pudo completar la recuperación automática: ${rollbackErrors.join('; ')}` : `No se pudo restaurar la copia. Se han recuperado los datos anteriores. ${error.message}`;
+      $('restore-backup-button').disabled = false;
+      throw error;
+    }
   }
 
   async function loadContacts() {
@@ -950,6 +1086,34 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   });
   $('undo-button').addEventListener('click', () => runHistory('undo'));
   $('redo-button').addEventListener('click', () => runHistory('redo'));
+  $('backup-button').addEventListener('click', () => $('backup-dialog').showModal());
+  $('close-backup-dialog').addEventListener('click', () => $('backup-dialog').close());
+  $('cancel-backup-dialog').addEventListener('click', () => $('backup-dialog').close());
+  $('export-backup-button').addEventListener('click', async () => {
+    try { await exportFullBackup(); }
+    catch (error) { if (error.name !== 'AbortError') notice(`No se pudo exportar la copia: ${error.message}`, 'error'); }
+  });
+  $('choose-backup-button').addEventListener('click', () => $('backup-file-input').click());
+  $('backup-file-input').addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      state.pendingBackupImport = prepareBackupImport(await file.text(), file.name);
+      $('backup-file-summary').textContent = `Archivo: ${file.name} · ${state.pendingBackupImport.contacts.length} contactos · ${state.pendingBackupImport.cancellations.length} meses de bajas`;
+      $('backup-warning').classList.remove('hidden');
+      $('restore-backup-button').disabled = false;
+    } catch (error) {
+      state.pendingBackupImport = null;
+      $('backup-warning').classList.add('hidden');
+      $('restore-backup-button').disabled = true;
+      $('backup-file-summary').textContent = error.message;
+    }
+  });
+  $('restore-backup-button').addEventListener('click', async () => {
+    try { await restoreFullBackup(); }
+    catch (error) { notice(`No se pudo restaurar la copia: ${error.message}`, 'error'); }
+  });
   $('logout-button').addEventListener('click', () => db?.auth.signOut());
 
   $('login-form').addEventListener('submit', async (e) => {
