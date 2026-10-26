@@ -404,3 +404,8 @@ td:first-child { font-weight: 700; color: #283c35; }
 .contact-type-group .contact-type-option span { width: 100%; min-height: 36px; padding: 4px 7px; text-align: center; }
 @media (max-width: 520px) { .contact-type-groups { grid-template-columns: 1fr; gap: 9px; } }
 
+/* El selector visual mantiene la fecha vinculada a los tres tipos presenciales */
+#contact-form .form-grid:has(input[name="contact_type"][value="Visita física"]:checked) #visit-date-field,
+#contact-form .form-grid:has(input[name="contact_type"][value="Invitación"]:checked) #visit-date-field,
+#contact-form .form-grid:has(input[name="contact_type"][value="Visita sin comercial"]:checked) #visit-date-field { display: grid !important; }
+
