@@ -4,7 +4,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, customizingOverview: false, draggedWidgetId: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, customizingOverview: false, draggedWidgetId: null };
   const DEFAULT_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'recent', 'daily'];
   const PREVIOUS_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'daily', 'recent'];
   const LEGACY_DEFAULT_WIDGET_ORDER = ['funnel', 'outcomes', 'ratios', 'followups', 'daily', 'recent'];
@@ -518,7 +518,23 @@
   }
   function emptyRow(span, text) { return `<tr><td class="empty-cell" colspan="${span}">${escapeHtml(text)}</td></tr>`; }
 
-  async function saveContact(form) {
+  function openDuplicateContactDialog(contact, memberNumber) {
+    state.pendingDuplicateContact = contact;
+    const todayKey = isoDay(new Date());
+    const within60Days = Boolean(contact.contact_date && contact.contact_date >= dateOffset(todayKey, -60) && contact.contact_date <= todayKey);
+    $('duplicate-contact-title').textContent = within60Days ? 'Socio ya contactado recientemente' : 'Este socio ya tuvo un contacto';
+    $('duplicate-contact-message').textContent = within60Days
+      ? `El socio ${memberNumber} ya tiene un contacto registrado en los últimos 60 días. Revisa su ficha antes de añadir otro.` 
+      : `El último contacto del socio ${memberNumber} fue el ${fmtDate(contact.contact_date)}. Han pasado más de 60 días; puedes modificar esa ficha o registrar un contacto nuevo.`;
+    const hotEnabled = Boolean(contact.hot_enabled ?? contact.visit_date);
+    const warmEnabled = Boolean(contact.warm_enabled ?? contact.visit_date);
+    const followupText = (enabled, done, due) => !enabled ? 'No activado' : (done ? 'Hecho' : fmtDate(due));
+    $('duplicate-contact-profile').innerHTML = `<div class="duplicate-profile-top"><strong>Socio ${escapeHtml(contact.member_number || memberNumber)}</strong><span>Último contacto · ${fmtDate(contact.contact_date)}</span></div><div class="duplicate-profile-grid"><div><small>Tipo de contacto</small><strong>${escapeHtml(contact.contact_type || '—')}</strong></div><div><small>Visita</small><strong>${fmtDate(contact.visit_date)}</strong></div><div><small>Hot</small><strong>${followupText(hotEnabled, contact.hot_done, dueFor(contact, 'hot'))}</strong></div><div><small>Warm</small><strong>${followupText(warmEnabled, contact.warm_done, dueFor(contact, 'warm'))}</strong></div><div><small>Alta</small><strong>${contact.is_alta ? `Sí · ${fmtDate(contact.alta_date)}` : 'No'}</strong></div></div>`;
+    $('contact-dialog').close();
+    $('duplicate-contact-dialog').showModal();
+  }
+
+  async function saveContact(form, allowDuplicate = false) {
     const values = new FormData(form);
     const isAlta = values.get('is_alta') === 'on';
     const visitDate = values.get('visit_date') || null;
@@ -538,22 +554,21 @@
     if (!payload.member_number) throw new Error('Indica el número de socio.');
     if (!payload.contact_type) throw new Error('Selecciona un tipo de contacto.');
     if (isAlta && !payload.alta_date) throw new Error('Indica la fecha del alta.');
-    const currentDate = isoDay(new Date());
-    const cutoffDate = dateOffset(currentDate, -30);
-    let duplicateQuery = db.from('gym_contacts')
-      .select('id, contact_date')
-      .eq('owner_id', state.user.id)
-      .eq('member_number', payload.member_number)
-      .gte('contact_date', cutoffDate)
-      .lte('contact_date', currentDate)
-      .limit(1);
-    if (state.editingContactId) duplicateQuery = duplicateQuery.neq('id', state.editingContactId);
-    const { data: recentDuplicates, error: duplicateError } = await duplicateQuery;
-    if (duplicateError) throw new Error(`No se pudo comprobar si ya existe un contacto reciente: ${duplicateError.message}`);
-    if (recentDuplicates?.length) {
-      throw new Error(`El socio ${payload.member_number} ya tiene un contacto en los últimos 30 días (${fmtDate(recentDuplicates[0].contact_date)}). No se ha guardado.`);
-    }
     const wasEditing = Boolean(state.editingContactId);
+    if (!wasEditing && !allowDuplicate) {
+      const { data: previousContacts, error: duplicateError } = await db.from('gym_contacts')
+        .select('*')
+        .eq('owner_id', state.user.id)
+        .eq('member_number', payload.member_number)
+        .order('contact_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (duplicateError) throw new Error(`No se pudo comprobar el historial de este socio: ${duplicateError.message}`);
+      if (previousContacts?.length) {
+        openDuplicateContactDialog(previousContacts[0], payload.member_number);
+        return;
+      }
+    }
     if (wasEditing) {
       const id = state.editingContactId;
       const current = state.contacts.find((item) => item.id === id);
@@ -862,6 +877,27 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
   $('contact-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContact(e.currentTarget); } catch (error) { notice(error.message, 'error'); } });
+  const returnFromDuplicateContact = () => {
+    $('duplicate-contact-dialog').close();
+    state.pendingDuplicateContact = null;
+    $('contact-dialog').showModal();
+  };
+  $('close-duplicate-contact').addEventListener('click', returnFromDuplicateContact);
+  $('cancel-duplicate-contact').addEventListener('click', returnFromDuplicateContact);
+  $('modify-duplicate-contact').addEventListener('click', () => {
+    const contact = state.pendingDuplicateContact;
+    if (!contact) return;
+    $('duplicate-contact-dialog').close();
+    state.pendingDuplicateContact = null;
+    openEditContact(contact.id);
+  });
+  $('add-duplicate-contact').addEventListener('click', async () => {
+    if (!state.pendingDuplicateContact) return;
+    $('duplicate-contact-dialog').close();
+    state.pendingDuplicateContact = null;
+    $('contact-dialog').showModal();
+    try { await saveContact($('contact-form'), true); } catch (error) { notice(error.message, 'error'); }
+  });
   $('customize-overview-button').addEventListener('click', () => setOverviewEditMode(!state.customizingOverview));
   $('reset-overview-layout-button').addEventListener('click', async () => {
     arrangeWidgets(DEFAULT_WIDGET_ORDER);
