@@ -395,3 +395,12 @@ td:first-child { font-weight: 700; color: #283c35; }
 .duplicate-profile-grid strong { color: #43564d; font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }
 .duplicate-contact-actions { flex-wrap: wrap; }
 @media (max-width: 520px) { .duplicate-contact-actions { justify-content: stretch; } .duplicate-contact-actions .button { flex: 1 1 100%; } .duplicate-profile-top { align-items: flex-start; flex-direction: column; gap: 4px; } }
+/* Dos grupos claros para elegir el canal del contacto */
+.contact-type-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.contact-type-group { min-width: 0; padding: 11px; border: 1px solid var(--line); border-radius: 11px; background: #fbfcfb; }
+.contact-type-group h3 { margin: 0 0 9px; color: #687671; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.contact-type-group .contact-type-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.contact-type-group .contact-type-option { min-width: 0; }
+.contact-type-group .contact-type-option span { width: 100%; min-height: 36px; padding: 4px 7px; text-align: center; }
+@media (max-width: 520px) { .contact-type-groups { grid-template-columns: 1fr; gap: 9px; } }
+
