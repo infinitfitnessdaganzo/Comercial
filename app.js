@@ -223,10 +223,18 @@
     const confirmed = window.confirm(`Se reemplazarán los contactos actuales (${state.contacts.length}) por ${pending.contacts.length} contactos de “${pending.fileName}” y se restaurarán sus bajas mensuales. ¿Quieres continuar?`);
     if (!confirmed) return;
     $('restore-backup-button').disabled = true;
-    $('backup-file-summary').textContent = 'Restaurando la copia… No cierres esta ventana.';
-    const [oldContacts, oldCancellations] = await Promise.all([fetchAllRows('gym_contacts'), fetchAllRows('gym_monthly_cancellations')]);
+    $('backup-file-summary').textContent = 'Preparando la restauración…';
+    let oldContacts, oldCancellations;
+    try {
+      [oldContacts, oldCancellations] = await Promise.all([fetchAllRows('gym_contacts'), fetchAllRows('gym_monthly_cancellations')]);
+    } catch (error) {
+      $('backup-file-summary').textContent = `No se pudieron leer los datos actuales; no se ha cambiado nada. ${error.message}`;
+      $('restore-backup-button').disabled = false;
+      throw error;
+    }
     let contactsChanged = false;
     let cancellationsChanged = false;
+    $('backup-file-summary').textContent = 'Restaurando la copia… No cierres esta ventana.';
     try {
       const { error: deleteError } = await db.from('gym_contacts').delete().eq('owner_id', state.user.id);
       if (deleteError) throw deleteError;
@@ -235,27 +243,30 @@
         const { error } = await db.from('gym_contacts').insert(group);
         if (error) throw error;
       }
-      cancellationsChanged = true;
       await replaceMonthlyCancellations(pending.cancellations, () => { cancellationsChanged = true; });
       if (pending.raw.settings && Object.hasOwn(pending.raw.settings, 'dashboard_widget_order')) {
         const { data, error } = await db.auth.updateUser({ data: { dashboard_widget_order: pending.raw.settings.dashboard_widget_order } });
         if (error) throw error;
         if (data?.user) state.user = data.user;
       }
-      state.history = []; state.redoHistory = [];
-      state.pendingBackupImport = null;
-      $('backup-dialog').close();
-      $('backup-warning').classList.add('hidden');
-      $('restore-backup-button').disabled = true;
-      await Promise.all([loadContacts(), loadMonthlyCancellations(), applySavedWidgetOrder()]);
-      notice('Copia restaurada correctamente.');
     } catch (error) {
       const rollbackErrors = [];
       if (contactsChanged) try { await replaceAllContacts(oldContacts); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
       if (cancellationsChanged) try { await replaceMonthlyCancellations(oldCancellations); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
-      $('backup-file-summary').textContent = rollbackErrors.length ? `Falló la restauración y no se pudo completar la recuperación automática: ${rollbackErrors.join('; ')}` : `No se pudo restaurar la copia. Se han recuperado los datos anteriores. ${error.message}`;
+      $('backup-file-summary').textContent = rollbackErrors.length ? `Falló la restauración y la recuperación automática quedó incompleta: ${rollbackErrors.join('; ')}` : `No se pudo restaurar la copia. Se han recuperado los datos anteriores. ${error.message}`;
       $('restore-backup-button').disabled = false;
       throw error;
+    }
+    state.history = []; state.redoHistory = [];
+    state.pendingBackupImport = null;
+    $('backup-dialog').close();
+    $('backup-warning').classList.add('hidden');
+    $('restore-backup-button').disabled = true;
+    try {
+      await Promise.all([loadContacts(), loadMonthlyCancellations(), applySavedWidgetOrder()]);
+      notice('Copia restaurada correctamente.');
+    } catch (error) {
+      notice(`La copia se restauró, pero no se pudo actualizar la pantalla. Recarga la página. ${error.message}`, 'error');
     }
   }
 
