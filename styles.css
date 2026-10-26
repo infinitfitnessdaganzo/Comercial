@@ -179,6 +179,9 @@ th { height: 37px; padding: 0 14px; color: #84918c; font-size: 9px; font-weight:
 .button:disabled { cursor: wait; opacity: .65; }
 .delete-details { padding: 11px 12px; border-radius: 8px; background: #f6f7f5; color: #455750; font-size: 12px; font-weight: 600; }
 td { height: 49px; padding: 0 14px; border-top: 1px solid #f0f2ef; font-size: 11px; color: #4f5e59; }
+tr.contact-row-pending > td { background: #fff8eb; }
+tr.contact-row-overdue > td { background: #fff0ee; }
+tr.contact-row-alta > td { background: #edf5ff; }
 td:first-child { font-weight: 700; color: #283c35; }
 .pill { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 99px; font-size: 9px; font-weight: 700; }
 .pill.success { background: #eaf5ed; color: #26734f; }
