@@ -551,6 +551,11 @@
     const done = kind === 'hot' ? c.hot_done : c.warm_done;
     const editAttrs = `data-edit-followup-date="${escapeHtml(c.id)}" data-followup-kind="${kind}"`;
     const editLabel = `Elegir nueva fecha ${kind === 'hot' ? 'Hot' : 'Warm'} para el socio ${escapeHtml(c.member_number || 'sin número')}`;
+    if (c.is_alta) {
+      const due = dueFor(c, kind);
+      const title = due ? `Seguimiento cerrado al registrar el alta. Fecha conservada: ${fmtDate(due)}` : 'Seguimiento cerrado al registrar el alta.';
+      return `<button class="pill success followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="${title}">Hecho</button>`;
+    }
     if (done) return `<button class="pill success followup-date-pill" type="button" ${editAttrs} aria-label="${editLabel}" title="Pulsa para programar otro seguimiento">Hecho</button>`;
     const due = dueFor(c, kind);
     const isDue = due && due <= isoDay(today);
