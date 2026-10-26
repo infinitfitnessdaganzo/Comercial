@@ -774,7 +774,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     state.periodMode = e.target.value;
     const isRange = state.periodMode === 'range';
     const isMonth = state.periodMode === 'month';
-    $('month-picker-label').classList.toggle('hidden', !isMonth);
+    $('month-picker-group').classList.toggle('hidden', !isMonth);
     $('year-picker-label').classList.toggle('hidden', state.periodMode !== 'year');
     $('range-start-label').classList.toggle('hidden', !isRange);
     $('range-end-label').classList.toggle('hidden', !isRange);
@@ -782,6 +782,15 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     render();
   });
   $('month-filter').addEventListener('change', (e) => { state.month = e.target.value; render(); });
+  const changeSelectedMonth = (offset) => {
+    const [year, month] = state.month.split('-').map(Number);
+    const next = new Date(year, month - 1 + offset, 1);
+    state.month = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`;
+    $('month-filter').value = state.month;
+    render();
+  };
+  $('previous-month').addEventListener('click', () => changeSelectedMonth(-1));
+  $('next-month').addEventListener('click', () => changeSelectedMonth(1));
   $('year-filter').addEventListener('change', (e) => { state.year = e.target.value; render(); });
   const updateDateRange = () => {
     state.rangeStart = $('range-start').value;
