@@ -551,7 +551,8 @@
       is_alta: isAlta,
       alta_date: isAlta ? (values.get('alta_date') || null) : null
     };
-    if (!payload.member_number) throw new Error('Indica el número de socio.');
+    if (payload.member_number && /^\d{1,4}$/.test(payload.member_number)) payload.member_number = payload.member_number.padStart(4, '0');
+    if (!payload.member_number || !/^\d{4}$/.test(payload.member_number)) throw new Error('El número de socio debe tener hasta 4 cifras.');
     if (!payload.contact_type) throw new Error('Selecciona un tipo de contacto.');
     if (isAlta && !payload.alta_date) throw new Error('Indica la fecha del alta.');
     const wasEditing = Boolean(state.editingContactId);
@@ -876,6 +877,9 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     $('contact-form').elements.hot_enabled.checked = visitContact;
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
+  const memberNumberInput = $('contact-form').elements.member_number;
+  memberNumberInput.addEventListener('input', () => { memberNumberInput.value = memberNumberInput.value.replace(/\D/g, '').slice(0, 4); });
+  memberNumberInput.addEventListener('blur', () => { if (memberNumberInput.value) memberNumberInput.value = memberNumberInput.value.padStart(4, '0'); });
   $('contact-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContact(e.currentTarget); } catch (error) { notice(error.message, 'error'); } });
   const returnFromDuplicateContact = () => {
     $('duplicate-contact-dialog').close();
