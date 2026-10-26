@@ -208,15 +208,12 @@
       if (error) throw error;
     }
   }
-  async function setMonthlyBackup(rows, existingRows) {
-    const monthsInBackup = new Set(rows.map((row) => row.month_start));
-    for (const row of existingRows) {
-      if (monthsInBackup.has(row.month_start)) continue;
-      const { error } = await db.from('gym_monthly_cancellations').update({ cancellation_count: 0 }).eq('owner_id', state.user.id).eq('month_start', row.month_start);
-      if (error) throw error;
-    }
+  async function replaceMonthlyCancellations(rows, onCleared = () => {}) {
+    const { error: deleteError } = await db.from('gym_monthly_cancellations').delete().eq('owner_id', state.user.id);
+    if (deleteError) throw new Error(`No se pudieron reemplazar las bajas mensuales. Ejecuta la migración 006_backup_restore_permissions.sql en Supabase. ${deleteError.message}`);
+    onCleared();
     for (const group of backupRows(rows)) {
-      const { error } = await db.from('gym_monthly_cancellations').upsert(group, { onConflict: 'owner_id,month_start' });
+      const { error } = await db.from('gym_monthly_cancellations').insert(group);
       if (error) throw error;
     }
   }
@@ -239,7 +236,7 @@
         if (error) throw error;
       }
       cancellationsChanged = true;
-      await setMonthlyBackup(pending.cancellations, oldCancellations);
+      await replaceMonthlyCancellations(pending.cancellations, () => { cancellationsChanged = true; });
       if (pending.raw.settings && Object.hasOwn(pending.raw.settings, 'dashboard_widget_order')) {
         const { data, error } = await db.auth.updateUser({ data: { dashboard_widget_order: pending.raw.settings.dashboard_widget_order } });
         if (error) throw error;
@@ -255,7 +252,7 @@
     } catch (error) {
       const rollbackErrors = [];
       if (contactsChanged) try { await replaceAllContacts(oldContacts); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
-      if (cancellationsChanged) try { await setMonthlyBackup(oldCancellations, await fetchAllRows('gym_monthly_cancellations')); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
+      if (cancellationsChanged) try { await replaceMonthlyCancellations(oldCancellations); } catch (rollbackError) { rollbackErrors.push(rollbackError.message); }
       $('backup-file-summary').textContent = rollbackErrors.length ? `Falló la restauración y no se pudo completar la recuperación automática: ${rollbackErrors.join('; ')}` : `No se pudo restaurar la copia. Se han recuperado los datos anteriores. ${error.message}`;
       $('restore-backup-button').disabled = false;
       throw error;
