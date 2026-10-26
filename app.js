@@ -484,7 +484,7 @@
     $('contact-type-member').textContent = `Socio ${contact.member_number || 'sin número'}`;
     $('contact-type-select').value = contact.contact_type;
     $('contact-type-visit-date').value = contact.visit_date || '';
-    const needsVisitDate = contact.contact_type === 'Visita física';
+    const needsVisitDate = ['Visita física', 'Invitación', 'Visita sin comercial'].includes(contact.contact_type);
     $('contact-type-visit-date-field').classList.toggle('hidden', !needsVisitDate);
     $('contact-type-visit-date').required = needsVisitDate;
     $('contact-type-dialog').showModal();
@@ -495,7 +495,7 @@
     const visitDate = $('contact-type-visit-date').value || null;
     const current = state.contacts.find((item) => item.id === id);
     if (!id || !current || !CONTACT_TYPES.includes(value)) return;
-    if (value === 'Visita física' && !visitDate) {
+    if (['Visita física', 'Invitación', 'Visita sin comercial'].includes(value) && !visitDate) {
       notice('Indica la fecha de la visita.', 'error');
       $('contact-type-visit-date').focus();
       return;
@@ -504,7 +504,8 @@
     button.disabled = true;
     const before = { contact_type: current.contact_type, visit_date: current.visit_date, hot_enabled: current.hot_enabled, warm_enabled: current.warm_enabled };
     const after = { contact_type: value };
-    if (value === 'Visita física') Object.assign(after, { visit_date: visitDate, hot_enabled: true, warm_enabled: true });
+    if (['Visita física', 'Invitación', 'Visita sin comercial'].includes(value)) Object.assign(after, { visit_date: visitDate });
+    else Object.assign(after, { visit_date: null });
     try {
       await writeContactFields(id, after);
       recordHistory('Cambiar tipo de contacto', () => writeContactFields(id, before), () => writeContactFields(id, after));
@@ -543,7 +544,7 @@
       member_number: values.get('member_number')?.trim() || null,
       contact_type: values.get('contact_type'),
       contact_date: values.get('contact_date'),
-      visit_date: visitDate,
+      visit_date: ['Visita física', 'Invitación', 'Visita sin comercial'].includes(values.get('contact_type')) ? visitDate : null,
       hot_enabled: values.get('hot_enabled') === 'on',
       warm_enabled: values.get('warm_enabled') === 'on',
       hot_done: false,
@@ -601,6 +602,7 @@
     state.editingContactId = null;
     const form = $('contact-form');
     form.reset();
+    $('visit-date-field').classList.add('hidden');
     $('contact-dialog-eyebrow').textContent = 'NUEVO REGISTRO';
     $('contact-dialog-title').textContent = 'Registrar contacto';
     $('save-contact-button').textContent = 'Guardar contacto';
@@ -619,6 +621,7 @@
     form.elements.member_number.value = contact.member_number || '';
     form.elements.contact_date.value = contact.contact_date || '';
     form.elements.visit_date.value = contact.visit_date || '';
+    $('visit-date-field').classList.toggle('hidden', !['Visita física', 'Invitación', 'Visita sin comercial'].includes(contact.contact_type));
     form.elements.hot_enabled.checked = Boolean(contact.hot_enabled ?? contact.visit_date);
     form.elements.warm_enabled.checked = Boolean(contact.warm_enabled ?? contact.visit_date);
     form.querySelectorAll('input[name="contact_type"]').forEach((radio) => {
@@ -848,7 +851,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   $('close-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
   $('cancel-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
   $('contact-type-select').addEventListener('change', (e) => {
-    const needsVisitDate = e.target.value === 'Visita física';
+    const needsVisitDate = ['Visita física', 'Invitación', 'Visita sin comercial'].includes(e.target.value);
     $('contact-type-visit-date-field').classList.toggle('hidden', !needsVisitDate);
     $('contact-type-visit-date').required = needsVisitDate;
   });
@@ -874,6 +877,9 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   document.querySelectorAll('input[name="contact_type"]').forEach((radio) => radio.addEventListener('change', (e) => {
     if (!e.target.checked) return;
     const visitContact = e.target.value === 'Visita física';
+    const showVisitDate = ['Visita física', 'Invitación', 'Visita sin comercial'].includes(e.target.value);
+    $('visit-date-field').classList.toggle('hidden', !showVisitDate);
+    if (!showVisitDate) $('contact-form').elements.visit_date.value = '';
     $('contact-form').elements.hot_enabled.checked = visitContact;
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
