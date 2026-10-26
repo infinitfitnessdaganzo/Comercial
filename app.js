@@ -8,6 +8,7 @@
   const DEFAULT_WIDGET_ORDER = ['outcomes', 'followups', 'ratios', 'recent', 'funnel', 'daily'];
   const PREVIOUS_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'recent', 'funnel', 'daily'];
   const OLDER_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'recent', 'daily'];
+  const EARLIER_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'daily', 'recent'];
   const LEGACY_DEFAULT_WIDGET_ORDER = ['funnel', 'outcomes', 'ratios', 'followups', 'daily', 'recent'];
   const today = new Date();
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
