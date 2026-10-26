@@ -409,8 +409,8 @@ td:first-child { font-weight: 700; color: #283c35; }
 #contact-form .form-grid:has(input[name="contact_type"][value="Invitación"]:checked) #visit-date-field,
 #contact-form .form-grid:has(input[name="contact_type"][value="Visita sin comercial"]:checked) #visit-date-field { display: grid !important; }
 
-.month-picker-group { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-.month-navigation { display: flex; justify-content: center; gap: 7px; }
+.month-picker-group { position: relative; }
+.month-navigation { position: absolute; top: calc(100% + 4px); left: 50%; display: flex; justify-content: center; gap: 7px; transform: translateX(-50%); }
 .month-navigation button { width: 27px; height: 23px; display: inline-flex; align-items: center; justify-content: center; padding: 0 0 2px; border: 1px solid var(--line); border-radius: 7px; background: #fff; color: #53655d; font-size: 19px; line-height: 1; cursor: pointer; }
 .month-navigation button:hover { border-color: #a5c5b4; background: #f3f8f4; color: var(--green-dark); }
 .month-navigation button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
