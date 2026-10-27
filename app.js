@@ -418,6 +418,9 @@
     const periodLabel = state.periodMode === 'month' ? 'mes' : (state.periodMode === 'year' ? 'año' : 'periodo');
     $('stat-contacts-label').textContent = `Contactos del ${periodLabel}`;
     $('stat-sales-label').textContent = `Altas del ${periodLabel}`;
+    $('stat-sales-summary-label').textContent = state.periodMode === 'month' && state.month
+      ? `Altas · ${cancellationMonthLabel(`${state.month}-01`)}`
+      : (state.periodMode === 'year' ? `Altas · ${state.year}` : 'Altas del periodo');
     $('stat-cancellations-label').textContent = state.periodMode === 'month' && state.month
       ? `Bajas · ${cancellationMonthLabel(`${state.month}-01`)}`
       : (state.periodMode === 'year' ? `Bajas · ${state.year}` : 'Bajas del periodo');
@@ -427,6 +430,7 @@
     $('stat-visits').textContent = visits.length;
     $('stat-visits-no-sale').textContent = visitsNoSale.length;
     $('stat-sales').textContent = sales.length;
+    $('stat-sales-summary').textContent = sales.length;
     $('stat-cancellations').textContent = cancellations === null ? '—' : cancellations;
     const cancellationRecordsInPeriod = state.monthlyCancellations.filter((record) => cancellationMonthInSelectedPeriod(record.month_start));
     const lastCancellationUpdate = cancellationRecordsInPeriod.map((record) => record.updated_at || record.created_at).filter(Boolean).sort().at(-1);
