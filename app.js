@@ -11,6 +11,7 @@
   const EARLIER_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'daily', 'recent'];
   const LEGACY_DEFAULT_WIDGET_ORDER = ['funnel', 'outcomes', 'ratios', 'followups', 'daily', 'recent'];
   const today = new Date();
+  let autoVisitDate = null;
   const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monthKey = (date) => (date || '').slice(0, 7);
   const monthEnd = (month) => {
@@ -762,6 +763,7 @@
     state.editingContactId = null;
     const form = $('contact-form');
     form.reset();
+    autoVisitDate = null;
     $('visit-date-field').classList.add('hidden');
     $('contact-dialog-eyebrow').textContent = 'NUEVO REGISTRO';
     $('contact-dialog-title').textContent = 'Registrar contacto';
@@ -778,6 +780,7 @@
     state.editingContactId = id;
     const form = $('contact-form');
     form.reset();
+    autoVisitDate = null;
     form.elements.member_number.value = contact.member_number || '';
     form.elements.contact_date.value = contact.contact_date || '';
     form.elements.visit_date.value = contact.visit_date || '';
@@ -1048,10 +1051,25 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     const visitContact = e.target.value === 'Visita física';
     const showVisitDate = ['Visita física', 'Invitación', 'Visita sin comercial'].includes(e.target.value);
     $('visit-date-field').classList.toggle('hidden', !showVisitDate);
-    if (!showVisitDate) $('contact-form').elements.visit_date.value = '';
+    if (!showVisitDate) {
+      $('contact-form').elements.visit_date.value = '';
+      autoVisitDate = null;
+    } else {
+      $('contact-form').elements.visit_date.value = $('contact-form').elements.contact_date.value || isoDay(today);
+      autoVisitDate = $('contact-form').elements.visit_date.value;
+    }
     $('contact-form').elements.hot_enabled.checked = visitContact;
     $('contact-form').elements.warm_enabled.checked = visitContact;
   }));
+  $('contact-form').elements.contact_date.addEventListener('change', (e) => {
+    const visitDate = $('contact-form').elements.visit_date;
+    const selectedType = $('contact-form').querySelector('input[name="contact_type"]:checked')?.value;
+    const isInPerson = ['Visita física', 'Invitación', 'Visita sin comercial'].includes(selectedType);
+    if (isInPerson && autoVisitDate && visitDate.value === autoVisitDate) {
+      visitDate.value = e.target.value;
+      autoVisitDate = e.target.value;
+    }
+  });
   const memberNumberInput = $('contact-form').elements.member_number;
   memberNumberInput.addEventListener('input', () => { memberNumberInput.value = memberNumberInput.value.replace(/\D/g, '').slice(0, 4); });
   memberNumberInput.addEventListener('blur', () => { if (memberNumberInput.value) memberNumberInput.value = memberNumberInput.value.padStart(4, '0'); });
@@ -1165,4 +1183,5 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
     }
   });
 })();
+
 
