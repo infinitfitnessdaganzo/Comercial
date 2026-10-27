@@ -626,7 +626,9 @@
   async function adjustMonthlyCancellations(delta, monthOverride = null) {
     const month = monthOverride || $('cancellation-month').value;
     if (!month) throw new Error('Elige el mes y el año.');
-    const current = Number($('cancellation-count').textContent || 0);
+    if (!state.cancellationsLoaded) throw new Error('Las bajas todavía no se han cargado.');
+    const record = state.monthlyCancellations.find((row) => row.month_start?.slice(0, 7) === month);
+    const current = Number(record?.cancellation_count || 0);
     const count = Math.max(0, current + delta);
     $('decrease-cancellations').disabled = true;
     $('increase-cancellations').disabled = true;
