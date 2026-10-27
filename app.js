@@ -418,7 +418,9 @@
     const periodLabel = state.periodMode === 'month' ? 'mes' : (state.periodMode === 'year' ? 'año' : 'periodo');
     $('stat-contacts-label').textContent = `Contactos del ${periodLabel}`;
     $('stat-sales-label').textContent = `Altas del ${periodLabel}`;
-    $('stat-cancellations-label').textContent = `Bajas del ${periodLabel}`;
+    $('stat-cancellations-label').textContent = state.periodMode === 'month' && state.month
+      ? `Bajas · ${cancellationMonthLabel(`${state.month}-01`)}`
+      : (state.periodMode === 'year' ? `Bajas · ${state.year}` : 'Bajas del periodo');
     $('stat-cancellations-note').textContent = state.periodMode === 'range' ? 'Incluye los meses que se solapan con el rango' : 'Bajas registradas por mes';
     $('stat-contacts').textContent = contactsInPeriod.length;
     $('stat-no-sale').textContent = noSale.length;
