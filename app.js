@@ -197,7 +197,7 @@
     }
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
-    const contactFields = ['id','member_number','contact_type','contact_date','visit_date','hot_done','warm_done','is_alta','alta_date','import_warnings','legacy_source_key','created_at','hot_enabled','warm_enabled','hot_due_date','warm_due_date'];
+    const contactFields = ['id','member_number','contact_type','contact_date','visit_date','hot_done','warm_done','is_alta','alta_date','import_warnings','legacy_source_key','created_at','hot_enabled','warm_enabled','hot_due_date','warm_due_date','notes'];
     const cancellationFields = ['id','month_start','cancellation_count','created_at','updated_at'];
     const contacts = backup.data.contacts.map((record, index) => {
       if (!record || typeof record !== 'object' || !uuidPattern.test(record.id || '') || !CONTACT_TYPES.includes(record.contact_type) || !isoDatePattern.test(record.contact_date || '')) throw new Error(`El contacto ${index + 1} no tiene un formato válido.`);
@@ -498,7 +498,7 @@
       return `<div class="day-column" title="${title}: ${item.contacts} contactos · ${item.visits} visitas · ${item.sales} altas"><div class="bar-track"><span class="bar-series bar-contacts" style="height:${contactHeight}%"></span><i class="bar-series bar-visits" style="height:${visitHeight}%"></i><b class="bar-series bar-sales" style="height:${salesHeight}%"></b></div><small>${label}</small></div>`;
     }).join('');
     const recent = [...contactsInPeriod].sort((a, b) => b.contact_date.localeCompare(a.contact_date) || (b.created_at || '').localeCompare(a.created_at || '')).slice(0, 8);
-    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr class="${contactRowClass(c)}"><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td><button class="contact-type-button" type="button" data-edit-contact-type="${escapeHtml(c.id)}" aria-label="Cambiar tipo de contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el tipo de contacto">${escapeHtml(c.contact_type)}</button></td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)}</td></tr>`).join('') : emptyRow(7, 'No hay contactos en este periodo.');
+    $('recent-rows').innerHTML = recent.length ? recent.map((c) => `<tr class="${contactRowClass(c)}"><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td><button class="contact-type-button" type="button" data-edit-contact-type="${escapeHtml(c.id)}" aria-label="Cambiar tipo de contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el tipo de contacto">${escapeHtml(c.contact_type)}</button></td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${notesCell(c)}</td><td>${altaStatusCell(c)}</td></tr>`).join('') : emptyRow(8, 'No hay contactos en este periodo.');
 
     const q = state.search.toLocaleLowerCase('es');
     const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
@@ -521,7 +521,7 @@
     });
     updateSortIndicators();
     $('contact-count').textContent = `${filtered.length} de ${contactsInPeriod.length} contactos`;
-    $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(8, 'No hay contactos que coincidan.');
+    $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(9, 'No hay contactos que coincidan.');
 
     const tasks = state.contacts.flatMap((c) => {
       if (c.is_alta) return [];
@@ -572,7 +572,34 @@
     const statusClass = c.is_alta ? 'success' : 'neutral';
     return `<button class="pill ${statusClass} alta-status-button" type="button" data-edit-alta="${escapeHtml(c.id)}" aria-label="Modificar estado de alta del socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el estado">${label}</button>`;
   }
-  function cancellationMonthLabel(monthStart) {
+  function notesCell(contact) {
+    const notes = String(contact.notes || '').trim();
+    const label = notes || 'Añadir nota';
+    const title = notes ? escapeHtml(notes) : 'Añadir observación';
+    const aria = notes ? `Editar notas del socio ${escapeHtml(contact.member_number || 'sin número')}` : `Añadir notas al socio ${escapeHtml(contact.member_number || 'sin número')}`;
+    return `<button class="notes-button${notes ? ' has-note' : ''}" type="button" data-edit-notes="${escapeHtml(contact.id)}" aria-label="${aria}" title="${title}">${escapeHtml(label)}</button>`;
+  }
+  function openContactNotesDialog(id) {
+    const contact = state.contacts.find((item) => item.id === id);
+    if (!contact) return;
+    state.editingNotesId = id;
+    $('contact-notes-member').textContent = `Socio ${contact.member_number || 'sin número'} · ${fmtDate(contact.contact_date)}`;
+    $('contact-notes-input').value = contact.notes || '';
+    $('contact-notes-dialog').showModal();
+    $('contact-notes-input').focus();
+  }
+  async function saveContactNotes() {
+    const id = state.editingNotesId;
+    const contact = state.contacts.find((item) => item.id === id);
+    if (!id || !contact) return;
+    const before = contact.notes || '';
+    const after = $('contact-notes-input').value.trim();
+    if (before === after) { $('contact-notes-dialog').close(); return; }
+    await writeContactFields(id, { notes: after });
+    recordHistory('Modificar notas', () => writeContactFields(id, { notes: before }), () => writeContactFields(id, { notes: after }));
+    $('contact-notes-dialog').close();
+    await loadContacts();
+  }  function cancellationMonthLabel(monthStart) {
     const [year, month] = monthStart.slice(0, 7).split('-').map(Number);
     return new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1));
   }
@@ -644,7 +671,7 @@
   }
   function contactRow(c) {
     const review = c.import_warnings?.length ? `<span class="pill warning" title="${escapeHtml(c.import_warnings.join(' · '))}">Revisar</span>` : '';
-    return `<tr class="${contactRowClass(c)}"><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td><button class="contact-type-button" type="button" data-edit-contact-type="${escapeHtml(c.id)}" aria-label="Cambiar tipo de contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el tipo de contacto">${escapeHtml(c.contact_type)}</button></td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
+    return `<tr class="${contactRowClass(c)}"><td class="member-number-cell">${escapeHtml(c.member_number || 'Sin número')}</td><td>${fmtDate(c.contact_date)}</td><td><button class="contact-type-button" type="button" data-edit-contact-type="${escapeHtml(c.id)}" aria-label="Cambiar tipo de contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Pulsa para cambiar el tipo de contacto">${escapeHtml(c.contact_type)}</button></td><td>${fmtDate(c.visit_date)}</td><td>${followupStatusCell(c, 'hot')}</td><td>${followupStatusCell(c, 'warm')}</td><td>${notesCell(c)}</td><td>${altaStatusCell(c)} ${review}</td><td class="action-cell"><button class="edit-button" type="button" data-edit-contact="${escapeHtml(c.id)}" aria-label="Modificar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Modificar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16.5-.8 4.3 4.3-.8L20 7.5 16.5 4 4 16.5Z"/><path d="m14.8 5.7 3.5 3.5"/></svg></button><button class="delete-button" type="button" data-delete-contact="${escapeHtml(c.id)}" aria-label="Eliminar contacto de socio ${escapeHtml(c.member_number || 'sin número')}" title="Eliminar contacto"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m3 0-.8 13H6.8L6 7m3 3v7m6-7v7" /></svg></button></td></tr>`;
   }
   function openContactTypeDialog(id) {
     const contact = state.contacts.find((item) => item.id === id);
@@ -1003,6 +1030,8 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
   ['contact-rows', 'recent-rows'].forEach((id) => $(id).addEventListener('click', (e) => {
+    const notesButton = e.target.closest('[data-edit-notes]');
+    if (notesButton) openContactNotesDialog(notesButton.dataset.editNotes);
     const button = e.target.closest('[data-edit-contact-type]');
     if (button) openContactTypeDialog(button.dataset.editContactType);
   }));
@@ -1028,6 +1057,10 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   $('cancel-dialog').addEventListener('click', () => $('contact-dialog').close());
   $('close-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
   $('cancel-followup-date').addEventListener('click', () => $('followup-date-dialog').close());
+  $('close-contact-notes').addEventListener('click', () => $('contact-notes-dialog').close());
+  $('cancel-contact-notes').addEventListener('click', () => $('contact-notes-dialog').close());
+  $('contact-notes-dialog').addEventListener('close', () => { state.editingNotesId = null; });
+  $('contact-notes-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await saveContactNotes(); } catch (error) { notice(`No se pudieron guardar las notas: ${error.message}`, 'error'); } });
   $('close-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
   $('cancel-contact-type').addEventListener('click', () => $('contact-type-dialog').close());
   $('contact-type-select').addEventListener('change', (e) => {
