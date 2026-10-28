@@ -440,3 +440,5 @@ td:first-child { font-weight: 700; color: #283c35; }
 .notes-modal { width: min(520px, calc(100% - 24px)); }
 .notes-modal textarea { width: 100%; min-height: 145px; resize: vertical; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); font: inherit; font-size: 12px; line-height: 1.5; }
 
+.notes-button.has-note, .notes-button.has-note:hover { color: #8052a6; font-weight: 700; }
+
