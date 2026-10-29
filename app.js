@@ -96,6 +96,13 @@
     if (!baseDate) return '';
     return dateOffset(baseDate, kind === 'hot' ? 1 : 8);
   }
+  function nextMemberNumber() {
+    const highest = state.contacts.reduce((maximum, contact) => {
+      const value = String(contact.member_number || '').trim();
+      return /^\d{1,4}$/.test(value) ? Math.max(maximum, Number(value)) : maximum;
+    }, 0);
+    return highest >= 9999 ? '' : String(highest + 1).padStart(4, '0');
+  }
   function contactRowClass(contact) {
     if (contact.is_alta) return 'contact-row-alta';
     const todayKey = isoDay(today);
@@ -806,6 +813,7 @@
     $('alta-date-field').classList.add('hidden');
     form.elements.alta_date.required = false;
     form.elements.contact_date.value = isoDay(today);
+    form.elements.member_number.value = nextMemberNumber();
     $('contact-dialog').showModal();
   }
 
