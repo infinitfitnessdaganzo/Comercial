@@ -4,7 +4,7 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, pendingBackupImport: null, customizingOverview: false, draggedWidgetId: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, pendingBackupImport: null, customizingOverview: false, draggedWidgetId: null, nextMemberNumber: null };
   const DEFAULT_WIDGET_ORDER = ['outcomes', 'followups', 'ratios', 'recent', 'funnel', 'daily'];
   const PREVIOUS_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'recent', 'funnel', 'daily'];
   const OLDER_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'recent', 'daily'];
@@ -97,11 +97,27 @@
     return dateOffset(baseDate, kind === 'hot' ? 1 : 8);
   }
   function nextMemberNumber() {
-    const highest = state.contacts.reduce((maximum, contact) => {
-      const value = String(contact.member_number || '').trim();
-      return /^\d{1,4}$/.test(value) ? Math.max(maximum, Number(value)) : maximum;
-    }, 0);
-    return highest >= 9999 ? '' : String(highest + 1).padStart(4, '0');
+    const saved = Number(state.user?.user_metadata?.next_member_number ?? state.nextMemberNumber);
+    if (Number.isInteger(saved) && saved > 0 && saved <= 10000) {
+      state.nextMemberNumber = String(saved);
+      return saved <= 9999 ? String(saved).padStart(4, '0') : '';
+    }
+    const latest = state.contacts
+      .filter((contact) => /^\d{1,4}$/.test(String(contact.member_number || '').trim()))
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '') || (b.contact_date || '').localeCompare(a.contact_date || ''))[0];
+    const next = latest ? Number(latest.member_number) + 1 : 1;
+    state.nextMemberNumber = String(next);
+    return next <= 9999 ? String(next).padStart(4, '0') : '';
+  }
+  async function persistNextMemberNumber(value) {
+    if (!value) return true;
+    const next = String(value);
+    state.nextMemberNumber = next;
+    if (String(state.user?.user_metadata?.next_member_number || '') === next) return true;
+    const { data, error } = await db.auth.updateUser({ data: { next_member_number: next } });
+    if (error) return false;
+    if (data?.user) state.user = data.user;
+    return true;
   }
   function contactRowClass(contact) {
     if (contact.is_alta) return 'contact-row-alta';
@@ -174,7 +190,7 @@
       version: BACKUP_VERSION,
       exported_at: new Date().toISOString(),
       data: { contacts, monthly_cancellations: cancellations },
-      settings: { dashboard_widget_order: state.user?.user_metadata?.dashboard_widget_order ?? null }
+      settings: { dashboard_widget_order: state.user?.user_metadata?.dashboard_widget_order ?? null, next_member_number: state.user?.user_metadata?.next_member_number ?? state.nextMemberNumber ?? null }
     };
     const text = JSON.stringify(payload, null, 2);
     const date = isoDay(new Date());
@@ -265,10 +281,16 @@
         if (error) throw error;
       }
       await replaceMonthlyCancellations(pending.cancellations, () => { cancellationsChanged = true; });
-      if (pending.raw.settings && Object.hasOwn(pending.raw.settings, 'dashboard_widget_order')) {
-        const { data, error } = await db.auth.updateUser({ data: { dashboard_widget_order: pending.raw.settings.dashboard_widget_order } });
-        if (error) throw error;
-        if (data?.user) state.user = data.user;
+      if (pending.raw.settings) {
+        const settings = {};
+        if (Object.hasOwn(pending.raw.settings, 'dashboard_widget_order')) settings.dashboard_widget_order = pending.raw.settings.dashboard_widget_order;
+        if (Object.hasOwn(pending.raw.settings, 'next_member_number') && pending.raw.settings.next_member_number) settings.next_member_number = pending.raw.settings.next_member_number;
+        if (Object.keys(settings).length) {
+          const { data, error } = await db.auth.updateUser({ data: settings });
+          if (error) throw error;
+          if (data?.user) state.user = data.user;
+          if (settings.next_member_number) state.nextMemberNumber = String(settings.next_member_number);
+        }
       }
     } catch (error) {
       const rollbackErrors = [];
@@ -760,6 +782,8 @@
     if (!payload.contact_type) throw new Error('Selecciona un tipo de contacto.');
     if (isAlta && !payload.alta_date) throw new Error('Indica la fecha del alta.');
     const wasEditing = Boolean(state.editingContactId);
+    const suggestedMemberNumber = wasEditing ? '' : (state.nextMemberNumber || nextMemberNumber());
+    let nextMemberSequenceSaved = true;
     if (!wasEditing && !allowDuplicate) {
       const { data: previousContacts, error: duplicateError } = await db.from('gym_contacts')
         .select('*')
@@ -793,12 +817,16 @@
       const { data: created, error } = await db.from('gym_contacts').insert(payload).select('*').single();
       if (error) throw error;
       recordHistory('Añadir contacto', () => deleteContactRow(created.id), () => insertContactRow(created));
+      const nextSuggested = payload.member_number === suggestedMemberNumber && Number(suggestedMemberNumber) < 9999
+        ? String(Number(suggestedMemberNumber) + 1).padStart(4, '0')
+        : suggestedMemberNumber;
+      nextMemberSequenceSaved = await persistNextMemberNumber(nextSuggested);
     }
     form.reset();
     $('alta-date-field').classList.add('hidden');
     state.editingContactId = null;
     $('contact-dialog').close();
-    notice(wasEditing ? 'Contacto modificado.' : 'Contacto guardado.');
+    notice(wasEditing ? 'Contacto modificado.' : (nextMemberSequenceSaved === false ? 'Contacto guardado; no se pudo guardar el siguiente número para próximas sesiones.' : 'Contacto guardado.'));
     await loadContacts();
   }
   function openNewContact() {
