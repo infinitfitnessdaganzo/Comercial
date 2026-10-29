@@ -572,8 +572,8 @@
       const list = tasks.filter((task) => task.kind.toLowerCase() === kind).sort((a, b) => a.date.localeCompare(b.date));
       $(target).innerHTML = list.length ? list.map((t) => {
         const dateStatus = t.date <= isoDay(today) ? 'attention' : 'hot';
-        return `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td><button class="pill ${dateStatus} followup-date-pill" type="button" data-edit-followup-date="${escapeHtml(t.c.id)}" data-followup-kind="${kind}" title="Haz clic para cambiar la fecha prevista">${fmtDate(t.date)}</button></td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`;
-      }).join('') : emptyRow(4, `No hay ${kind === 'hot' ? 'Hot' : 'Warm'} pendientes.`);
+        return `<tr class="${t.date < isoDay(today) ? 'overdue' : ''}"><td>${escapeHtml(t.c.member_number || 'Sin número')}</td><td>${escapeHtml(t.c.contact_type)}</td><td>${notesCell(t.c)}</td><td><button class="pill ${dateStatus} followup-date-pill" type="button" data-edit-followup-date="${escapeHtml(t.c.id)}" data-followup-kind="${kind}" title="Haz clic para cambiar la fecha prevista">${fmtDate(t.date)}</button></td><td><button class="button small secondary" data-complete="${t.c.id}" data-field="${t.field}">Marcar hecho</button></td></tr>`;
+      }).join('') : emptyRow(5, `No hay ${kind === 'hot' ? 'Hot' : 'Warm'} pendientes.`);
     };
     renderFollowupTable('hot', 'hot-followup-rows');
     renderFollowupTable('warm', 'warm-followup-rows');
@@ -1065,7 +1065,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   }));
   document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
   document.querySelectorAll('.nav-link').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); setView(a.hash.slice(1)); }));
-  ['contact-rows', 'recent-rows'].forEach((id) => $(id).addEventListener('click', (e) => {
+  ['contact-rows', 'recent-rows', 'hot-followup-rows', 'warm-followup-rows'].forEach((id) => $(id).addEventListener('click', (e) => {
     const notesButton = e.target.closest('[data-edit-notes]');
     if (notesButton) openContactNotesDialog(notesButton.dataset.editNotes);
     const button = e.target.closest('[data-edit-contact-type]');
