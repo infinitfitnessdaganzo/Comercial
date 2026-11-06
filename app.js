@@ -4,7 +4,8 @@
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
   const db = supabaseReady ? window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey) : null;
   const $ = (id) => document.getElementById(id);
-  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, pendingBackupImport: null, customizingOverview: false, draggedWidgetId: null, nextMemberNumber: null };
+  const state = { user: null, contacts: [], monthlyCancellations: [], cancellationsLoaded: false, month: '', year: String(new Date().getFullYear()), periodMode: 'month', rangeStart: '', rangeEnd: '', view: 'overview', search: '', typeFilter: '', dateFrom: '', dateTo: '', contactsAllPeriods: true, contactsPage: 1, sortBy: 'contact_date', sortDirection: 'desc', pendingDelete: null, editingContactId: null, editingContactTypeId: null, history: [], redoHistory: [], historyBusy: false, pendingDuplicateContact: null, pendingBackupImport: null, customizingOverview: false, draggedWidgetId: null, nextMemberNumber: null };
+  const CONTACTS_PAGE_SIZE = 30;
   const DEFAULT_WIDGET_ORDER = ['outcomes', 'followups', 'ratios', 'recent', 'funnel', 'daily'];
   const PREVIOUS_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'recent', 'funnel', 'daily'];
   const OLDER_WIDGET_ORDER = ['outcomes', 'ratios', 'followups', 'funnel', 'recent', 'daily'];
@@ -531,7 +532,8 @@
 
     const q = state.search.toLocaleLowerCase('es');
     const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
-    const filtered = contactsInPeriod.filter((c) => {
+    const contactsForList = state.contactsAllPeriods ? state.contacts : contactsInPeriod;
+    const filtered = contactsForList.filter((c) => {
       const matchesSearch = !q || `${c.member_number || ''} ${c.contact_type}`.toLocaleLowerCase('es').includes(q);
       const matchesType = !state.typeFilter || c.contact_type === state.typeFilter;
       const matchesFrom = !state.dateFrom || c.contact_date >= state.dateFrom;
@@ -549,8 +551,17 @@
       return 0;
     });
     updateSortIndicators();
-    $('contact-count').textContent = `${filtered.length} de ${contactsInPeriod.length} contactos`;
-    $('contact-rows').innerHTML = filtered.length ? filtered.map(contactRow).join('') : emptyRow(9, 'No hay contactos que coincidan.');
+    const totalPages = Math.max(1, Math.ceil(filtered.length / CONTACTS_PAGE_SIZE));
+    state.contactsPage = Math.min(state.contactsPage, totalPages);
+    const firstIndex = (state.contactsPage - 1) * CONTACTS_PAGE_SIZE;
+    const visibleContacts = filtered.slice(firstIndex, firstIndex + CONTACTS_PAGE_SIZE);
+    $('contact-count').textContent = filtered.length
+      ? `Mostrando ${firstIndex + 1}–${Math.min(firstIndex + CONTACTS_PAGE_SIZE, filtered.length)} de ${filtered.length} contactos${state.contactsAllPeriods ? ' · Todo el historial' : ' · Periodo seleccionado'}`
+      : `0 contactos${state.contactsAllPeriods ? ' · Todo el historial' : ' · Periodo seleccionado'}`;
+    $('contact-rows').innerHTML = visibleContacts.length ? visibleContacts.map(contactRow).join('') : emptyRow(9, 'No hay contactos que coincidan.');
+    $('contacts-pagination').innerHTML = filtered.length > CONTACTS_PAGE_SIZE
+      ? `<button class="button secondary pagination-button" type="button" data-contacts-page="${state.contactsPage - 1}" ${state.contactsPage <= 1 ? 'disabled' : ''}>‹ Anterior</button><span>Página ${state.contactsPage} de ${totalPages}</span><button class="button secondary pagination-button" type="button" data-contacts-page="${state.contactsPage + 1}" ${state.contactsPage >= totalPages ? 'disabled' : ''}>Siguiente ›</button>`
+      : '';
 
     const tasks = state.contacts.flatMap((c) => {
       if (c.is_alta) return [];
@@ -1046,12 +1057,20 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
   $('summary-increase-cancellations').addEventListener('click', async () => {
     try { await adjustMonthlyCancellations(1, state.month); } catch (error) { notice(`No se pudo actualizar el total: ${error.message}`, 'error'); }
   });
-  $('search-input').addEventListener('input', (e) => { state.search = e.target.value; render(); });
-  $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; render(); });
-  $('date-from-filter').addEventListener('change', (e) => { state.dateFrom = e.target.value; render(); });
-  $('date-to-filter').addEventListener('change', (e) => { state.dateTo = e.target.value; render(); });
-  $('sort-by').addEventListener('change', (e) => { state.sortBy = e.target.value; render(); });
-  $('sort-direction').addEventListener('change', (e) => { state.sortDirection = e.target.value; render(); });
+  $('search-input').addEventListener('input', (e) => { state.search = e.target.value; state.contactsPage = 1; render(); });
+  $('contacts-all-periods').addEventListener('change', (e) => { state.contactsAllPeriods = e.target.checked; state.contactsPage = 1; render(); });
+  $('contacts-pagination').addEventListener('click', (e) => {
+    const button = e.target.closest('[data-contacts-page]');
+    if (!button || button.disabled) return;
+    state.contactsPage = Number(button.dataset.contactsPage);
+    render();
+    $('contacts-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  $('type-filter').addEventListener('change', (e) => { state.typeFilter = e.target.value; state.contactsPage = 1; render(); });
+  $('date-from-filter').addEventListener('change', (e) => { state.dateFrom = e.target.value; state.contactsPage = 1; render(); });
+  $('date-to-filter').addEventListener('change', (e) => { state.dateTo = e.target.value; state.contactsPage = 1; render(); });
+  $('sort-by').addEventListener('change', (e) => { state.sortBy = e.target.value; state.contactsPage = 1; render(); });
+  $('sort-direction').addEventListener('change', (e) => { state.sortDirection = e.target.value; state.contactsPage = 1; render(); });
   document.querySelectorAll('.sort-header').forEach((button) => button.addEventListener('click', () => {
     const key = button.dataset.sortKey;
     if (state.sortBy === key) state.sortDirection = state.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -1059,6 +1078,7 @@ $('month-filter').value = `${today.getFullYear()}-${String(today.getMonth() + 1)
       state.sortBy = key;
       state.sortDirection = ['contact_type'].includes(key) ? 'asc' : 'desc';
     }
+    state.contactsPage = 1;
     $('sort-by').value = state.sortBy;
     $('sort-direction').value = state.sortDirection;
     render();
