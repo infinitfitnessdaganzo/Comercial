@@ -204,6 +204,11 @@ td:first-child { font-weight: 700; color: #283c35; }
 .sort-control select { min-width: 165px; }
 .direction-control select { min-width: 255px; }
 .result-count { margin: 6px 0 10px; color: #87928d; font-size: 10px; }
+.contacts-all-periods { display: flex; align-items: center; gap: 7px; min-height: 41px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: #52635d; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.contacts-all-periods input { width: 15px; height: 15px; margin: 0; accent-color: var(--green); }
+.contacts-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px 0 4px; color: #687671; font-size: 11px; }
+.pagination-button { min-height: 34px; padding: 0 13px; }
+.pagination-button:disabled { opacity: .45; cursor: not-allowed; }
 .cancellation-counter-panel { width: min(560px, 100%); margin: 20px auto; padding: 25px; text-align: center; }
 .cancellation-counter-panel .panel-heading { text-align: left; }
 .cancellation-counter-panel .toolbar-control { min-width: 160px; text-align: left; }
