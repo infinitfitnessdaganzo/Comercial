@@ -56,6 +56,7 @@
         <section id="contacts-section" class="view-section hidden">
           <div class="toolbar">
             <input id="search-input" class="search" type="search" placeholder="Buscar por número de socio o tipo…" />
+            <label class="contacts-all-periods"><input id="contacts-all-periods" type="checkbox" checked /> Todo el historial</label>
             <label class="toolbar-control">Tipo<select id="type-filter"><option value="">Todos los tipos</option><option>Web/Email</option><option>Visita física</option><option>Teléfono</option><option>WhatsApp</option><option>Visita sin comercial</option><option>Invitación</option></select></label>
             <label class="toolbar-control">Desde<input id="date-from-filter" type="date" /></label>
             <label class="toolbar-control">Hasta<input id="date-to-filter" type="date" /></label>
@@ -64,6 +65,7 @@
           </div>
           <p id="contact-count" class="result-count"></p>
           <section class="panel table-panel"><div class="table-wrap"><table><thead><tr><th><button class="sort-header" data-sort-key="member_number" type="button">Socio <span class="sort-indicator"></span></button></th><th><button class="sort-header" data-sort-key="contact_date" type="button">Fecha de contacto <span class="sort-indicator"></span></button></th><th><button class="sort-header" data-sort-key="contact_type" type="button">Tipo de contacto <span class="sort-indicator"></span></button></th><th><button class="sort-header" data-sort-key="visit_date" type="button">Visita <span class="sort-indicator"></span></button></th><th><button class="sort-header" data-sort-key="hot_done" type="button">Hot <span class="sort-indicator"></span></button></th><th><button class="sort-header" data-sort-key="warm_done" type="button">Warm <span class="sort-indicator"></span></button></th><th><button class="sort-header" data-sort-key="is_alta" type="button">Alta <span class="sort-indicator"></span></button></th><th>Notas</th><th class="action-heading">Acción</th></tr></thead><tbody id="contact-rows"></tbody></table></div></section>
+          <nav id="contacts-pagination" class="contacts-pagination" aria-label="Páginas de contactos"></nav>
         </section>
 
         <section id="cancellations-section" class="view-section hidden">
