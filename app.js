@@ -1,4 +1,26 @@
 (() => {
+  let installPromptEvent = null;
+  const installButton = document.getElementById('install-pwa-button');
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('./sw.js').catch((error) => console.warn('No se pudo preparar el modo instalable:', error));
+  }
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    installPromptEvent = event;
+    installButton?.classList.remove('hidden');
+  });
+  installButton?.addEventListener('click', async () => {
+    if (!installPromptEvent) return;
+    installPromptEvent.prompt();
+    await installPromptEvent.userChoice;
+    installPromptEvent = null;
+    installButton.classList.add('hidden');
+  });
+  window.addEventListener('appinstalled', () => {
+    installPromptEvent = null;
+    installButton?.classList.add('hidden');
+  });
+
   const CONTACT_TYPES = ['Web/Email', 'Visita física', 'Teléfono', 'WhatsApp', 'Visita sin comercial', 'Invitación'];
   const cfg = window.APP_CONFIG || {};
   const supabaseReady = Boolean(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);

@@ -4,9 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f6f5f1" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="description" content="Gestión privada de visitas, contactos y seguimientos de Infinit Fitness Daganzo." />
     <title>Gestión de visitas · Infinit Fitness</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=3" />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=4" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css?v=pwa-1" />
   </head>
   <body>
     <div id="auth-view" class="auth-shell">
@@ -19,7 +25,8 @@
         <label>Contraseña<input name="password" type="password" autocomplete="current-password" required /></label>
         <button class="button primary full" type="submit">Iniciar sesión</button>
         <p id="login-error" class="error" role="alert"></p>
-        <p class="fine-print">La aplicación es privada. El acceso se configura en Supabase.</p>
+        <button id="install-pwa-button" class="button secondary full install-pwa-button hidden" type="button">＋ Instalar aplicación</button>
+        <p class="fine-print">La aplicación es privada. El acceso se configura en Supabase. Para consultar y guardar datos necesitas conexión a internet.</p>
       </form>
     </div>
 
@@ -86,8 +93,8 @@
     <dialog id="delete-confirm" class="modal confirm-modal"><div class="modal-heading"><div><p class="eyebrow">CONFIRMAR BORRADO</p><h2>Eliminar contacto</h2></div><button type="button" id="close-delete-confirm" class="icon-button" aria-label="Cerrar">×</button></div><p>¿Seguro que quieres borrar este registro?</p><p id="delete-confirm-details" class="delete-details"></p><p class="help-text">Esta acción no se puede deshacer.</p><div class="modal-actions"><button type="button" id="cancel-delete" class="button secondary">Cancelar</button><button type="button" id="confirm-delete" class="button danger">Eliminar contacto</button></div></dialog>
 
     <dialog id="backup-dialog" class="modal backup-modal"><div class="modal-heading"><div><p class="eyebrow">TUS DATOS</p><h2>Copia de seguridad</h2></div><button type="button" id="close-backup-dialog" class="icon-button" aria-label="Cerrar">×</button></div><p class="muted">Guarda una copia de tus contactos, bajas mensuales y preferencias en un archivo.</p><div class="backup-actions"><button id="export-backup-button" type="button" class="button primary"><span aria-hidden="true">↓</span> Exportar copia</button><button id="choose-backup-button" type="button" class="button secondary"><span aria-hidden="true">↑</span> Importar copia</button><input id="backup-file-input" class="hidden" type="file" accept=".json,application/json" /></div><p id="backup-file-summary" class="backup-file-summary">Selecciona un archivo de copia para revisar su contenido.</p><p id="backup-warning" class="backup-warning hidden">Al restaurar, se sustituirán los contactos actuales y se restaurarán los recuentos mensuales de bajas. Esta acción no se puede deshacer desde la aplicación.</p><div class="modal-actions"><button id="cancel-backup-dialog" type="button" class="button secondary">Cerrar</button><button id="restore-backup-button" type="button" class="button danger" disabled>Restablecer copia</button></div></dialog>    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
-    <script src="app.js" defer></script>
+    <script src="./supabase-config.js"></script>
+    <script src="./app.js?v=pwa-1" defer></script>
   </body>
 </html>
 

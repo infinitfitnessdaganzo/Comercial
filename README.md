@@ -21,3 +21,6 @@ El apartado **Altas y bajas** permite actualizar el contador mensual y muestra e
 
 Las altas se agrupan por `alta_date`; los contactos y visitas, por `contact_date`; las bajas, por mes registrado. En periodos personalizados se suman las bajas de los meses que se solapan con el intervalo. El balance muestra altas menos bajas. Los ratios de contactos y visitas se calculan con las altas del periodo frente al volumen de contactos o visitas correspondiente.
 
+## Instalar como aplicación
+
+La web publicada en GitHub Pages se puede instalar desde el botón **Instalar aplicación** en la pantalla de inicio de sesión cuando el navegador lo ofrezca, o desde el menú del navegador. En iPhone o iPad, usa **Compartir → Añadir a pantalla de inicio**. La pantalla de la aplicación puede abrirse sin conexión después de la primera visita; para iniciar sesión y consultar o guardar los datos de Supabase hace falta internet.
