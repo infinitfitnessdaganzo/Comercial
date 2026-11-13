@@ -1,9 +1,9 @@
-const CACHE_NAME = 'infinit-visitas-pwa-v1';
+const CACHE_NAME = 'infinit-visitas-pwa-v2';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css?v=pwa-1',
-  './app.js?v=pwa-1',
+  './app.js?v=pwa-2',
   './supabase-config.js',
   './manifest.webmanifest',
   './favicon.svg?v=4',
